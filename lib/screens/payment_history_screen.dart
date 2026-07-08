@@ -201,12 +201,13 @@ class _FilterButton extends StatelessWidget {
             color:
                 active
                     ? colorScheme.primary
-                    : colorScheme.primary.withValues(alpha: 0.1),
+                    : colorScheme.surfaceContainerHighest,
           ),
           child: Icon(
             icon,
             size: smallIconSize,
-            color: active ? colorScheme.onPrimary : colorScheme.primary,
+            color:
+                active ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
           ),
         ),
       ),
