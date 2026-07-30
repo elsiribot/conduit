@@ -26,6 +26,7 @@ use fedimint_meta_client::{MetaClientInit, MetaModuleMetaSourceWithFallback};
 use fedimint_mint_client::{KIND as MINT_KIND, MintClientInit};
 use fedimint_mintv2_client::MintClientInit as MintV2ClientInit;
 use fedimint_mintv2_common::KIND as MINTV2_KIND;
+use fedimint_rocksdb::RocksDb;
 use fedimint_wallet_client::{KIND as WALLET_KIND, WalletClientInit};
 use fedimint_walletv2_client::WalletClientInit as WalletV2ClientInit;
 use fedimint_walletv2_common::KIND as WALLETV2_KIND;
@@ -76,7 +77,7 @@ fn contains(haystack: &str, needle: &str) -> bool {
 
 fn build_debug_archive(
     tar_path: &Path,
-    checkpoint_dir: &Path,
+    snapshot_dir: &Path,
     rotated_logs: &[PathBuf],
     timestamp: u64,
 ) -> Result<(), String> {
@@ -85,7 +86,7 @@ fn build_debug_archive(
     let mut archive = tar::Builder::new(file);
 
     archive
-        .append_dir_all("db", checkpoint_dir)
+        .append_dir_all("db", snapshot_dir)
         .map_err(|e| e.to_string())?;
 
     for log in rotated_logs {
@@ -407,17 +408,15 @@ impl ConduitClientFactory {
 
         let rotated_logs = crate::logging::rotate_logs(timestamp)?;
 
-        let checkpoint_dir = Path::new(out_dir).join(format!("db-checkpoint-{timestamp}"));
+        let snapshot_dir = Path::new(out_dir).join(format!("db-snapshot-{timestamp}"));
 
-        self.db
-            .checkpoint(&checkpoint_dir)
-            .map_err(|e| format!("db checkpoint failed: {e}"))?;
+        self.snapshot_db(&snapshot_dir).await?;
 
         let tar_path = Path::new(out_dir).join(format!("conduit-debug-{timestamp}.tar"));
 
-        let result = build_debug_archive(&tar_path, &checkpoint_dir, &rotated_logs, timestamp);
+        let result = build_debug_archive(&tar_path, &snapshot_dir, &rotated_logs, timestamp);
 
-        let _ = std::fs::remove_dir_all(&checkpoint_dir);
+        let _ = std::fs::remove_dir_all(&snapshot_dir);
 
         result?;
 
@@ -428,6 +427,38 @@ impl ConduitClientFactory {
         }
 
         Ok(tar_path.display().to_string())
+    }
+
+    /// Copy every key-value pair into a fresh RocksDB at `snapshot_dir`
+    /// within a single snapshot transaction. `Database::checkpoint` is not
+    /// usable here since Android denies the hard links it relies on.
+    async fn snapshot_db(&self, snapshot_dir: &Path) -> Result<(), String> {
+        let snapshot_db: Database = RocksDb::open_blocking(snapshot_dir, None)
+            .map_err(|e| format!("failed to create snapshot db: {e}"))?
+            .into();
+
+        let mut dbtx = self.db.begin_transaction_nc().await;
+
+        let mut entries = dbtx
+            .raw_find_by_prefix(&[])
+            .await
+            .map_err(|e| format!("failed to scan db: {e}"))?;
+
+        let mut snapshot_tx = snapshot_db.begin_transaction().await;
+
+        while let Some((key, value)) = entries.next().await {
+            snapshot_tx
+                .raw_insert_bytes(&key, &value)
+                .await
+                .map_err(|e| format!("failed to write snapshot: {e}"))?;
+        }
+
+        drop(entries);
+
+        snapshot_tx
+            .commit_tx_result()
+            .await
+            .map_err(|e| format!("failed to commit snapshot: {e}"))
     }
 
     #[frb]

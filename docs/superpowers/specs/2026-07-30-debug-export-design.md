@@ -50,7 +50,10 @@ payment-failure problems.
 1. Rotate the active log: rename `conduit.log` →
    `conduit-<unix-ts>.log`, open a fresh `conduit.log`, swap the fd in the
    shared writer (rename-then-reopen is safe while the old fd is held).
-2. Checkpoint the DB: `self.db.checkpoint(<tmp>/db-checkpoint-<ts>)`.
+2. Snapshot the DB: copy every raw key-value pair into a fresh RocksDB at
+   `<tmp>/db-snapshot-<ts>` within one snapshot transaction.
+   (`Database::checkpoint` is unusable on Android: it hard-links SST
+   files and Android denies app processes the `link()` syscall.)
 3. Write a tar (`tar` crate) at `<out_dir>/conduit-debug-<ts>.tar`:
    - `db/` — the RocksDB checkpoint files (full client DB state, all
      federations)
