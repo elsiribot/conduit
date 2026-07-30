@@ -12,7 +12,7 @@ NDK_VERSION="28.2.13676358"
 
 export NIXPKGS_ALLOW_UNFREE=1
 
-nix-shell -p steam-run flutter rustup gcc pkg-config openssl clang cmake gnumake ninja perl go llvmPackages.libclang jdk17 --run "
+nix-shell -p steam-run flutter341 rustup gcc pkg-config openssl clang cmake gnumake ninja perl go llvmPackages.libclang jdk17 --run "
 set -e
 export RUSTUP_HOME=\$HOME/.rustup CARGO_HOME=\$HOME/.cargo
 export PATH=\$CARGO_HOME/bin:\$PATH
