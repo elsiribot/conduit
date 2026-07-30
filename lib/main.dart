@@ -25,6 +25,12 @@ void main() async {
 
   final dir = await getApplicationDocumentsDirectory();
 
+  try {
+    await initLogging(appDir: dir.path);
+  } catch (e) {
+    debugPrint('Failed to initialize file logging: $e');
+  }
+
   final db = await openDatabase(dbPath: dir.path);
 
   final clientFactory = await ConduitClientFactory.tryLoad(db: db);
@@ -45,7 +51,7 @@ class ConduitApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return OverlaySupport.global(
       child: MaterialApp(
-        title: 'Conduit',
+        title: "Eric's Conduit",
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),

@@ -27,6 +27,9 @@ fedimint-mintv2-client = "0.11.0"
 fedimint-mintv2-common = "0.11.0"
 bitcoin = "0.32.5"
 log = "0.4"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tar = "0.4"
 flutter_rust_bridge = "=2.10.0"
 futures-util = "0.3.30"
 lightning-invoice = { version = "0.33.2", features = ["std"] }
@@ -40,6 +43,9 @@ hyper-util = "=0.1.14"
 surge-ping = "=0.8.2"
 socket2 = "=0.5.9"
 url = "2"
+
+[target.'cfg(target_os = "android")'.dependencies]
+tracing-android = "0.2"
 
 [profile.dev.package]
 tikv-jemalloc-sys = { opt-level = 3 }

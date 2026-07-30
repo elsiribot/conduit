@@ -1,3 +1,6 @@
+use std::fs::File;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::client::ConduitClient;
@@ -69,6 +72,49 @@ pub struct ConduitContact {
 
 fn contains(haystack: &str, needle: &str) -> bool {
     haystack.to_lowercase().contains(&needle.to_lowercase())
+}
+
+fn build_debug_archive(
+    tar_path: &Path,
+    checkpoint_dir: &Path,
+    rotated_logs: &[PathBuf],
+    timestamp: u64,
+) -> Result<(), String> {
+    let file = File::create(tar_path).map_err(|e| e.to_string())?;
+
+    let mut archive = tar::Builder::new(file);
+
+    archive
+        .append_dir_all("db", checkpoint_dir)
+        .map_err(|e| e.to_string())?;
+
+    for log in rotated_logs {
+        let name = log.file_name().expect("rotated logs have file names");
+
+        archive
+            .append_path_with_name(log, Path::new("logs").join(name))
+            .map_err(|e| e.to_string())?;
+    }
+
+    let info = format!(
+        "export_unix_time: {timestamp}\napp_version: {}\n",
+        env!("CARGO_PKG_VERSION")
+    );
+
+    let mut header = tar::Header::new_gnu();
+    header.set_size(info.len() as u64);
+    header.set_mode(0o644);
+    header.set_mtime(timestamp);
+    header.set_cksum();
+
+    archive
+        .append_data(&mut header, "export-info.txt", info.as_bytes())
+        .map_err(|e| e.to_string())?;
+
+    archive
+        .into_inner()
+        .and_then(|mut file| file.flush())
+        .map_err(|e| e.to_string())
 }
 
 impl ConduitContact {
@@ -347,6 +393,41 @@ impl ConduitClientFactory {
             .expect("unrecoverable error when removing client db");
 
         dbtx.commit_tx().await;
+    }
+
+    /// Export a tar archive containing a consistent snapshot of the full
+    /// client database and all log files written since the last export.
+    /// Returns the path of the archive.
+    #[frb]
+    pub async fn export_debug_archive(&self, out_dir: &str) -> Result<String, String> {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time went backwards")
+            .as_secs();
+
+        let rotated_logs = crate::logging::rotate_logs(timestamp)?;
+
+        let checkpoint_dir = Path::new(out_dir).join(format!("db-checkpoint-{timestamp}"));
+
+        self.db
+            .checkpoint(&checkpoint_dir)
+            .map_err(|e| format!("db checkpoint failed: {e}"))?;
+
+        let tar_path = Path::new(out_dir).join(format!("conduit-debug-{timestamp}.tar"));
+
+        let result = build_debug_archive(&tar_path, &checkpoint_dir, &rotated_logs, timestamp);
+
+        let _ = std::fs::remove_dir_all(&checkpoint_dir);
+
+        result?;
+
+        // Only drop rotated logs once they are safely inside the archive;
+        // on failure the next export picks them up again.
+        for log in &rotated_logs {
+            let _ = std::fs::remove_file(log);
+        }
+
+        Ok(tar_path.display().to_string())
     }
 
     #[frb]

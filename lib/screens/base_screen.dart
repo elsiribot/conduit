@@ -1,6 +1,8 @@
 import 'package:balanced_text/balanced_text.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:conduit/bridge_generated.dart/lib.dart';
 import 'package:conduit/bridge_generated.dart/client.dart';
 import 'package:conduit/bridge_generated.dart/currency.dart';
@@ -64,7 +66,7 @@ class _BaseScreenState extends State<BaseScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Conduit')),
+    appBar: AppBar(title: const Text("Eric's Conduit")),
     body: SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(0, 16, 0, 32),
       child: BleedColumn(
@@ -72,7 +74,11 @@ class _BaseScreenState extends State<BaseScreen> {
         children: [
           const SectionHeader(title: 'Settings'),
           BorderedList.column(
-            children: [_buildSeedPhraseCard(), _buildCurrencyCard()],
+            children: [
+              _buildSeedPhraseCard(),
+              _buildCurrencyCard(),
+              _buildDebugExportCard(),
+            ],
           ),
           const SizedBox(height: 16),
           if (_federations.isEmpty)
@@ -204,6 +210,33 @@ class _BaseScreenState extends State<BaseScreen> {
       subtitle: _currencyName,
       onTap: _handleCurrencyTap,
     );
+  }
+
+  Widget _buildDebugExportCard() {
+    return SettingsCard(
+      icon: PhosphorIconsRegular.bug,
+      title: 'Export Debug Data',
+      subtitle: 'DB state and logs since last export',
+      onTap: _handleDebugExportTap,
+    );
+  }
+
+  Future<void> _handleDebugExportTap() async {
+    try {
+      final tmpDir = await getTemporaryDirectory();
+
+      final tarPath = await widget.clientFactory.exportDebugArchive(
+        outDir: tmpDir.path,
+      );
+
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(tarPath, mimeType: 'application/x-tar')]),
+      );
+    } catch (e) {
+      if (mounted) {
+        NotificationUtils.showError(context, e.toString());
+      }
+    }
   }
 
   Widget _buildFederationCard(FederationInfo federation) {

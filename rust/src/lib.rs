@@ -7,6 +7,7 @@ mod factory;
 mod fountain;
 mod frb_generated;
 mod lnurl;
+mod logging;
 
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -34,6 +35,7 @@ pub use events::{ConduitPayment, PaymentNotification, PaymentType, RecentPayment
 pub use factory::{ConduitClientFactory, ConduitContact, FederationInfo};
 pub use fountain::{ECashDecoder, ECashEncoder};
 pub use lnurl::{LnurlWrapper, PayResponseWrapper, lnurl_fetch_limits, lnurl_resolve, parse_lnurl};
+pub use logging::init_logging;
 
 #[frb(sync)]
 pub fn word_list() -> Vec<String> {
