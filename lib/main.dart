@@ -7,6 +7,7 @@ import 'package:overlay_support/overlay_support.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:conduit/bridge_generated.dart/frb_generated.dart';
 import 'package:conduit/bridge_generated.dart/lib.dart';
+import 'package:conduit/bridge_generated.dart/logging.dart';
 import 'package:conduit/bridge_generated.dart/factory.dart';
 import 'package:conduit/screens/landing_screen.dart';
 import 'package:conduit/screens/base_screen.dart';
