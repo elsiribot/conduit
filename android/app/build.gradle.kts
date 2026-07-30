@@ -29,7 +29,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "app.conduit.wallet"
+        applicationId = "app.conduit.wallet.eric"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

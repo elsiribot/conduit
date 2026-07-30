@@ -5,7 +5,7 @@
          of cloud backups and device-to-device transfers rather than letting
          the seed leave the device. -->
     <application
-        android:label="Conduit"
+        android:label="Eric's Conduit"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
