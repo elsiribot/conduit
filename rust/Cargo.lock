@@ -1547,8 +1547,6 @@ dependencies = [
 [[package]]
 name = "fedimint-connectors"
 version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "626e7c0b4f1a76598729c2ff2808082ca4445b3b4a04aa4e74198de79ff914da"
 dependencies = [
  "anyhow",
  "async-trait",

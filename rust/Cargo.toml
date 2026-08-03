@@ -47,6 +47,13 @@ url = "2"
 [target.'cfg(target_os = "android")'.dependencies]
 tracing-android = "0.2"
 
+# 0.11.1 plus the backported gateway connection-pool fix (fedimint#8932):
+# without it every pooled gateway HTTP request is treated as a reconnection
+# and pays a 500ms reconnect backoff. Drop once released in a 0.11.x point
+# release or the next fedimint bump.
+[patch.crates-io]
+fedimint-connectors = { path = "vendor/fedimint-connectors" }
+
 [profile.dev.package]
 tikv-jemalloc-sys = { opt-level = 3 }
 librocksdb-sys = { opt-level = 3 }
