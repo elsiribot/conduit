@@ -44,6 +44,64 @@ pub struct ConduitPayment {
     pub fiat_currency_code: Option<String>,
 }
 
+/// One timestamped lifecycle step of a payment, derived from the persisted
+/// fedimint event log.
+#[frb]
+#[derive(Clone)]
+pub struct PaymentTimelineStep {
+    pub label: String,
+    pub timestamp_ms: i64,
+}
+
+/// Human-readable label for an event-log entry shown in a payment timeline.
+/// Falls back to the raw event kind so unmapped events still show up rather
+/// than silently disappearing from the breakdown.
+pub(crate) fn timeline_label(entry: &EventLogEntry, payload: &serde_json::Value) -> String {
+    // Core tx events carry no module; payment events do. On-chain sends
+    // terminate with a chain confirmation rather than a lightning preimage.
+    let onchain = matches!(
+        entry.module.as_ref().map(|(kind, _)| kind.as_str()),
+        Some("wallet" | "walletv2")
+    );
+
+    let kind = entry.kind.to_string();
+
+    match kind.as_str() {
+        "payment-send" => "Initiated".to_string(),
+        "payment-receive" => "Received".to_string(),
+        "tx-created" => "Transaction submitted".to_string(),
+        "tx-accepted" => "Accepted by consensus".to_string(),
+        "tx-rejected" => "Rejected by consensus".to_string(),
+        "payment-send-update" | "payment-send-status" => match status_outcome(payload) {
+            Some(outcome) if outcome == "Success" => if onchain {
+                "Confirmed on-chain"
+            } else {
+                "Payment completed"
+            }
+            .to_string(),
+            Some(outcome) => outcome,
+            None => kind,
+        },
+        "payment-receive-update" => match status_outcome(payload) {
+            Some(outcome) if outcome == "Success" => "Completed".to_string(),
+            Some(outcome) => outcome,
+            None => kind,
+        },
+        _ => kind,
+    }
+}
+
+/// Extracts the outcome variant name from an event payload's `status` field:
+/// unit variants serialize as a plain string ("Refunded"), data-carrying
+/// variants as a single-key object ({"Success": …}).
+fn status_outcome(payload: &serde_json::Value) -> Option<String> {
+    match payload.get("status")? {
+        serde_json::Value::String(outcome) => Some(outcome.clone()),
+        serde_json::Value::Object(map) => map.keys().next().cloned(),
+        _ => None,
+    }
+}
+
 /// Notification for a recent payment event
 #[frb]
 pub struct PaymentNotification {

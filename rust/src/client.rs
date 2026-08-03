@@ -20,8 +20,8 @@ use std::str::FromStr;
 
 use crate::db::{EventLogEntryKey, EventLogEntryPrefix, OperationFiatKey};
 use crate::events::{
-    ConduitPayment, ParsedEvent, PaymentNotification, RecentPaymentsUpdate, apply_update,
-    parse_event_log_entry, snapshot,
+    ConduitPayment, ParsedEvent, PaymentNotification, PaymentTimelineStep, RecentPaymentsUpdate,
+    apply_update, parse_event_log_entry, snapshot, timeline_label,
 };
 use crate::exchange::{EXCHANGE_RATE_TTL, ExchangeRateCache, fetch_exchange_rate};
 use crate::frb_generated::StreamSink;
@@ -650,6 +650,49 @@ impl ConduitClient {
         payments.reverse();
 
         payments
+    }
+
+    /// Timestamped lifecycle steps for one operation, read from the persisted
+    /// fedimint event log (tx submission, consensus acceptance, terminal
+    /// outcome, …) in log order. Empty when the id doesn't parse or the
+    /// operation predates the event log.
+    #[frb]
+    pub async fn payment_timeline(&self, operation_id: String) -> Vec<PaymentTimelineStep> {
+        let mut steps = Vec::new();
+        let mut position = EventLogId::LOG_START;
+
+        loop {
+            let batch = self.client.get_event_log(Some(position), 100).await;
+            let batch_len = batch.len();
+
+            for entry in &batch {
+                position = entry.id().saturating_add(1);
+
+                let raw = entry.as_raw();
+
+                let Ok(payload) = serde_json::from_slice::<serde_json::Value>(&raw.payload)
+                else {
+                    continue;
+                };
+
+                // Operation ids serialize as their full-hex form in event
+                // payloads, the same form `ConduitPayment` carries.
+                if payload.get("operation_id").and_then(|id| id.as_str())
+                    != Some(operation_id.as_str())
+                {
+                    continue;
+                }
+
+                steps.push(PaymentTimelineStep {
+                    label: timeline_label(raw, &payload),
+                    timestamp_ms: (raw.ts_usecs / 1000) as i64,
+                });
+            }
+
+            if batch_len < 100 {
+                return steps;
+            }
+        }
     }
 
     #[frb]

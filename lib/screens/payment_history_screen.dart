@@ -2,6 +2,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:conduit/bridge_generated.dart/client.dart';
 import 'package:conduit/bridge_generated.dart/events.dart';
 import 'package:conduit/utils/styles.dart';
 import 'package:conduit/utils/payment_utils.dart';
@@ -12,8 +13,13 @@ import 'package:conduit/drawers/payment_details_drawer.dart';
 
 class PaymentHistoryScreen extends StatefulWidget {
   final List<ConduitPayment> payments;
+  final ConduitClient client;
 
-  const PaymentHistoryScreen({super.key, required this.payments});
+  const PaymentHistoryScreen({
+    super.key,
+    required this.payments,
+    required this.client,
+  });
 
   @override
   State<PaymentHistoryScreen> createState() => _PaymentHistoryScreenState();
@@ -145,7 +151,12 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
               (context, payment) => PaymentCard(
                 key: ValueKey(payment.operationId),
                 event: payment,
-                onTap: () => PaymentDetailsDrawer.show(context, event: payment),
+                onTap:
+                    () => PaymentDetailsDrawer.show(
+                      context,
+                      event: payment,
+                      client: widget.client,
+                    ),
               ),
         ),
       ),
