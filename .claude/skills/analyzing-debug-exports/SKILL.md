@@ -63,7 +63,8 @@ comparable with prior reports:
 1. fee lookup + build/sign funding tx (device; typical 0.6–0.8 s)
 2. submit → peer ack (network; ~0.5 s warm, up to ~1.7 s cold)
 3. peer ack → consensus accepted (federation; 0.4–0.6 s)
-4. consensus → send_payment dispatched (device SM executor; 0.6–1.0 s)
+4. consensus → send_payment dispatched (device; 0.6–1.0 s pre-`cf418a0`,
+   ~25 ms on patched builds — see pool-churn quirk)
 5. send_payment → preimage (gateway+LN; 1.4–1.7 s to date)
 
 E-cash change issuance (mint outputs + `signature_shares`) runs in
@@ -71,11 +72,17 @@ parallel and is NOT on the critical path — don't add it to totals.
 
 ## Known quirks — check this list before calling something an anomaly
 
-- **Connection-pool churn**: every gateway HTTPS call logs
+- **Connection-pool churn** (builds before `cf418a0`, 2026-08-03): every
+  gateway HTTPS call logs
   `Existing connection is disconnected, removing from pool` and pays a
-  fresh TCP+TLS handshake. Known bug, constant noise — not your anomaly.
-- **SM executor wakeup gap**: 0.6–1.0 s of pure client-side dead time
-  between consensus acceptance and the send_payment dispatch. Known.
+  500 ms pool reconnect backoff + fresh TCP+TLS handshake. Fixed by the
+  fedimint#8932 backport; on patched builds gateway HTTPS churn lines are
+  absent and reappearance is a regression. Occasional one-off disconnect
+  lines for `iroh://` guardian URLs are normal on all builds.
+- **SM wakeup gap** (pre-`cf418a0` builds): 0.6–1.0 s between consensus
+  acceptance and send_payment dispatch. Measured post-fix at ~25 ms — it
+  was mostly the pool's 500 ms reconnect backoff, not executor
+  scheduling. On patched builds treat a gap > 0.5 s as an anomaly.
 - **Cold iroh connections**: within ~2 min of app start, peer-ack can be
   ~3× slower. Check log start / `file logging initialized` before blaming
   the network.
