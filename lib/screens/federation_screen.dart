@@ -318,7 +318,7 @@ class _FederationScreenState extends State<FederationScreen> {
   }
 
   void _showEventDetails(ConduitPayment event) {
-    PaymentDetailsDrawer.show(context, event: event);
+    PaymentDetailsDrawer.show(context, event: event, client: widget.client);
   }
 
   @override

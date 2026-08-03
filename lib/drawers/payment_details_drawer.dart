@@ -7,6 +7,7 @@ import 'package:conduit/widgets/drawer_shell_widget.dart';
 import 'package:conduit/widgets/bordered_list_widget.dart';
 import 'package:conduit/widgets/payment_summary_row_widget.dart';
 import 'package:conduit/widgets/detail_row_widget.dart';
+import 'package:conduit/widgets/section_header_widget.dart';
 import 'package:conduit/widgets/shareable_row_widget.dart';
 import 'package:conduit/utils/payment_utils.dart';
 import 'package:conduit/utils/drawer_utils.dart';
@@ -39,11 +40,15 @@ class PaymentDetailsDrawer extends StatefulWidget {
 
 class _PaymentDetailsDrawerState extends State<PaymentDetailsDrawer> {
   int? _federationFeeMsats;
+  late final Future<List<PaymentTimelineStep>> _timeline;
 
   @override
   void initState() {
     super.initState();
     _loadFederationFee();
+    _timeline = widget.client.paymentTimeline(
+      operationId: widget.event.operationId,
+    );
   }
 
   Future<void> _loadFederationFee() async {
@@ -66,63 +71,116 @@ class _PaymentDetailsDrawerState extends State<PaymentDetailsDrawer> {
   String _msatsAsSats(int msats) =>
       '${NumberFormat('#,##0.#').format(msats / 1000)} sat';
 
+  /// Formats a step duration: sub-minute spans with ms resolution, longer
+  /// spans (e.g. on-chain confirmation) coarsened to minutes/hours.
+  static String _duration(int ms) {
+    if (ms >= 3600000) {
+      return '${ms ~/ 3600000}h ${(ms % 3600000) ~/ 60000}m';
+    }
+    if (ms >= 60000) {
+      return '${ms ~/ 60000}m ${(ms % 60000) ~/ 1000}s';
+    }
+    return '${(ms / 1000).toStringAsFixed(2)} s';
+  }
+
+  /// Timing rows: the first step anchors the timeline at its wall-clock time,
+  /// every later step shows its distance from the previous one.
+  List<Widget> _timingRows(List<PaymentTimelineStep> steps) {
+    return [
+      DetailRow(
+        icon: PhosphorIconsRegular.play,
+        label: steps.first.label,
+        value: DateFormat('HH:mm:ss').format(
+          DateTime.fromMillisecondsSinceEpoch(steps.first.timestampMs),
+        ),
+      ),
+      for (var i = 1; i < steps.length; i++)
+        DetailRow(
+          icon:
+              i == steps.length - 1
+                  ? PhosphorIconsRegular.flagCheckered
+                  : PhosphorIconsRegular.hourglassMedium,
+          label: steps[i].label,
+          value: '+${_duration(steps[i].timestampMs - steps[i - 1].timestampMs)}',
+        ),
+      DetailRow(
+        icon: PhosphorIconsRegular.timer,
+        label: 'Total',
+        value: _duration(steps.last.timestampMs - steps.first.timestampMs),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final event = widget.event;
     final fee = event.feeSats;
     final fiat = historicalFiat(event);
 
-    return DrawerShell(
-      children: [
-        BorderedList.column(
+    return FutureBuilder<List<PaymentTimelineStep>>(
+      future: _timeline,
+      builder: (context, snapshot) {
+        final steps = snapshot.data ?? const [];
+
+        return DrawerShell(
           children: [
-            PaymentSummaryRow(
-              paymentType: event.paymentType,
-              incoming: event.incoming,
-              status:
-                  '${PaymentTypeUtils.getStatus(incoming: event.incoming, success: event.success)} · ${formatRelativeTime(DateTime.fromMillisecondsSinceEpoch(event.timestamp))}',
-              iconColor: event.success == false ? Colors.amber : null,
+            BorderedList.column(
+              children: [
+                PaymentSummaryRow(
+                  paymentType: event.paymentType,
+                  incoming: event.incoming,
+                  status:
+                      '${PaymentTypeUtils.getStatus(incoming: event.incoming, success: event.success)} · ${formatRelativeTime(DateTime.fromMillisecondsSinceEpoch(event.timestamp))}',
+                  iconColor: event.success == false ? Colors.amber : null,
+                ),
+                DetailRow(
+                  icon: PhosphorIconsRegular.currencyBtc,
+                  label: 'Bitcoin',
+                  value: _sats(event.amountSats),
+                ),
+                if (fiat != null)
+                  DetailRow(
+                    icon: PhosphorIconsRegular.currencyDollar,
+                    label: fiat.currency,
+                    value: fiat.amount,
+                  ),
+                if (fee != null)
+                  DetailRow(
+                    icon: PhosphorIconsRegular.network,
+                    label: 'Network Fee',
+                    value:
+                        '${_sats(fee)} · ${NumberFormat('#,##0.#').format(fee / event.amountSats * 100)}%',
+                  ),
+                if (_federationFeeMsats case final federationFee?)
+                  DetailRow(
+                    icon: PhosphorIconsRegular.wallet,
+                    label: 'Mint Fee',
+                    value: _msatsAsSats(federationFee),
+                  ),
+                if (event.address != null)
+                  ShareableRow(data: event.address!, label: 'Bitcoin Address'),
+                if (event.txid != null)
+                  ShareableRow(data: event.txid!, label: 'Transaction ID'),
+                if (event.preimage != null)
+                  ShareableRow(data: event.preimage!, label: 'Preimage'),
+                if (event.ecash != null)
+                  ShareableRow(data: event.ecash!, label: 'eCash'),
+                DetailRow(
+                  icon: PhosphorIconsRegular.calendarBlank,
+                  label: 'Date',
+                  value: _formatDateTime(event.timestamp),
+                ),
+              ],
             ),
-            DetailRow(
-              icon: PhosphorIconsRegular.currencyBtc,
-              label: 'Bitcoin',
-              value: _sats(event.amountSats),
-            ),
-            if (fiat != null)
-              DetailRow(
-                icon: PhosphorIconsRegular.currencyDollar,
-                label: fiat.currency,
-                value: fiat.amount,
-              ),
-            if (fee != null)
-              DetailRow(
-                icon: PhosphorIconsRegular.network,
-                label: 'Network Fee',
-                value:
-                    '${_sats(fee)} · ${NumberFormat('#,##0.#').format(fee / event.amountSats * 100)}%',
-              ),
-            if (_federationFeeMsats case final federationFee?)
-              DetailRow(
-                icon: PhosphorIconsRegular.wallet,
-                label: 'Mint Fee',
-                value: _msatsAsSats(federationFee),
-              ),
-            if (event.address != null)
-              ShareableRow(data: event.address!, label: 'Bitcoin Address'),
-            if (event.txid != null)
-              ShareableRow(data: event.txid!, label: 'Transaction ID'),
-            if (event.preimage != null)
-              ShareableRow(data: event.preimage!, label: 'Preimage'),
-            if (event.ecash != null)
-              ShareableRow(data: event.ecash!, label: 'eCash'),
-            DetailRow(
-              icon: PhosphorIconsRegular.calendarBlank,
-              label: 'Date',
-              value: _formatDateTime(event.timestamp),
-            ),
+            // A lone event carries no durations, so the section only appears
+            // once at least two steps are on record.
+            if (steps.length >= 2) ...[
+              const SectionHeader(title: 'Timing'),
+              BorderedList.column(children: _timingRows(steps)),
+            ],
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 }
