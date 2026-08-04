@@ -7,11 +7,12 @@ import 'package:conduit/widgets/drawer_shell_widget.dart';
 import 'package:conduit/widgets/bordered_list_widget.dart';
 import 'package:conduit/widgets/payment_summary_row_widget.dart';
 import 'package:conduit/widgets/detail_row_widget.dart';
-import 'package:conduit/widgets/section_header_widget.dart';
+import 'package:conduit/widgets/icon_chip_widget.dart';
 import 'package:conduit/widgets/shareable_row_widget.dart';
 import 'package:conduit/utils/payment_utils.dart';
 import 'package:conduit/utils/drawer_utils.dart';
 import 'package:conduit/utils/currency_utils.dart';
+import 'package:conduit/utils/styles.dart';
 
 class PaymentDetailsDrawer extends StatefulWidget {
   final ConduitPayment event;
@@ -40,6 +41,7 @@ class PaymentDetailsDrawer extends StatefulWidget {
 
 class _PaymentDetailsDrawerState extends State<PaymentDetailsDrawer> {
   late final Future<List<PaymentTimelineStep>> _timeline;
+  bool _timingExpanded = false;
 
   @override
   void initState() {
@@ -68,31 +70,62 @@ class _PaymentDetailsDrawerState extends State<PaymentDetailsDrawer> {
     return '${(ms / 1000).toStringAsFixed(2)} s';
   }
 
-  /// Timing rows: the first step anchors the timeline at its wall-clock time,
-  /// every later step shows its distance from the previous one.
-  List<Widget> _timingRows(List<PaymentTimelineStep> steps) {
+  /// Collapsed summary row: total duration with a caret to reveal the
+  /// step-by-step timeline.
+  Widget _timingHeader(List<PaymentTimelineStep> steps) {
+    return ListTile(
+      contentPadding: listTilePadding,
+      leading: const IconChip(icon: PhosphorIconsRegular.timer),
+      title: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _duration(steps.last.timestampMs - steps.first.timestampMs),
+            style: mediumStyle,
+          ),
+          Text(
+            'Timing',
+            style: smallStyle.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+      trailing: AnimatedRotation(
+        turns: _timingExpanded ? 0.5 : 0,
+        duration: const Duration(milliseconds: 200),
+        child: Icon(
+          PhosphorIconsRegular.caretDown,
+          size: smallIconSize,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+      onTap: () => setState(() => _timingExpanded = !_timingExpanded),
+    );
+  }
+
+  /// The expanded timeline: the first step anchors at its wall-clock time,
+  /// every later step shows its distance from the previous one. A failed
+  /// payment ends on an amber dot, mirroring the summary row's icon.
+  List<Widget> _timelineRows(List<PaymentTimelineStep> steps) {
     return [
-      DetailRow(
-        icon: PhosphorIconsRegular.play,
-        label: steps.first.label,
-        value: DateFormat('HH:mm:ss').format(
-          DateTime.fromMillisecondsSinceEpoch(steps.first.timestampMs),
-        ),
-      ),
-      for (var i = 1; i < steps.length; i++)
-        DetailRow(
-          icon:
-              i == steps.length - 1
-                  ? PhosphorIconsRegular.flagCheckered
-                  : PhosphorIconsRegular.hourglassMedium,
+      for (var i = 0; i < steps.length; i++)
+        _TimelineRow(
           label: steps[i].label,
-          value: '+${_duration(steps[i].timestampMs - steps[i - 1].timestampMs)}',
+          time:
+              i == 0
+                  ? DateFormat('HH:mm:ss').format(
+                    DateTime.fromMillisecondsSinceEpoch(steps[i].timestampMs),
+                  )
+                  : '+${_duration(steps[i].timestampMs - steps[i - 1].timestampMs)}',
+          first: i == 0,
+          last: i == steps.length - 1,
+          dotColor:
+              i == steps.length - 1 && widget.event.success == false
+                  ? Colors.amber
+                  : null,
         ),
-      DetailRow(
-        icon: PhosphorIconsRegular.timer,
-        label: 'Total',
-        value: _duration(steps.last.timestampMs - steps.first.timestampMs),
-      ),
     ];
   }
 
@@ -144,17 +177,103 @@ class _PaymentDetailsDrawerState extends State<PaymentDetailsDrawer> {
                   ShareableRow(data: event.preimage!, label: 'Preimage'),
                 if (event.ecash != null)
                   ShareableRow(data: event.ecash!, label: 'eCash'),
+                // A lone event carries no durations, so the section only
+                // appears once at least two steps are on record.
+                if (steps.length >= 2) ...[
+                  _timingHeader(steps),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    alignment: Alignment.topCenter,
+                    child:
+                        _timingExpanded
+                            ? Column(children: _timelineRows(steps))
+                            : const SizedBox(width: double.infinity),
+                  ),
+                ],
               ],
             ),
-            // A lone event carries no durations, so the section only appears
-            // once at least two steps are on record.
-            if (steps.length >= 2) ...[
-              const SectionHeader(title: 'Timing'),
-              BorderedList.column(children: _timingRows(steps)),
-            ],
           ],
         );
       },
+    );
+  }
+}
+
+/// One stop on the vertical timeline: a dot in the leading column (aligned
+/// under the row chips above it), connected to its neighbours by line
+/// segments, with the step label and its timing across the row.
+class _TimelineRow extends StatelessWidget {
+  final String label;
+  final String time;
+  final bool first;
+  final bool last;
+  final Color? dotColor;
+
+  const _TimelineRow({
+    required this.label,
+    required this.time,
+    required this.first,
+    required this.last,
+    this.dotColor,
+  });
+
+  // IconChip at mediumIconSize is 42px wide (28px icon + 25% padding each
+  // side), so a 42px lane centres the dots under the chips above.
+  static const _laneWidth = 42.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final lineColor = colorScheme.outlineVariant;
+
+    Widget line(bool hidden) => Expanded(
+      child: Container(width: 2, color: hidden ? null : lineColor),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: _laneWidth,
+              child: Column(
+                children: [
+                  line(first),
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: dotColor ?? colorScheme.primary,
+                    ),
+                  ),
+                  line(last),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(label, style: mediumStyle)),
+                    Text(
+                      time,
+                      style: smallStyle.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
