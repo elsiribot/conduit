@@ -553,6 +553,28 @@ impl ConduitClientFactory {
             .await
     }
 
+    /// (url, guardian name) pairs across all saved federation configs,
+    /// for labeling bandwidth counters on the debug page. URLs are
+    /// formatted exactly like the counter labels (`SafeUrl::to_string`).
+    #[frb]
+    pub async fn guardian_names(&self) -> Vec<(String, String)> {
+        self.db
+            .begin_transaction_nc()
+            .await
+            .find_by_prefix(&ClientConfigPrefix)
+            .await
+            .map(|(_, config)| {
+                config
+                    .global
+                    .api_endpoints
+                    .into_values()
+                    .map(|peer| (peer.url.to_string(), peer.name))
+                    .collect::<Vec<_>>()
+            })
+            .concat()
+            .await
+    }
+
     /// Switches the wallet's currency: persisted, applied to every open
     /// client through the shared setting, and the cached rate dropped so the
     /// next fetch is for the new currency.
