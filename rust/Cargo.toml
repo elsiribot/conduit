@@ -42,6 +42,13 @@ url = "2"
 [target.'cfg(target_os = "android")'.dependencies]
 tracing-android = "0.2"
 
+# Vendored so the bandwidth monitor can count requests/bytes per connector
+# from the inside. Patches the git-sourced fedimint-connectors rather than
+# crates.io, since the rest of the fedimint crates are pinned to a fedimint
+# git revision, not a crates.io release.
+[patch."https://github.com/fedimint/fedimint"]
+fedimint-connectors = { path = "vendor/fedimint-connectors" }
+
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(frb_expand)'] }
 
