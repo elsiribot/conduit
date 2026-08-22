@@ -180,6 +180,7 @@ mod tests {
 
     #[test]
     fn collects_entries_joined_across_families() {
+        let _guard = SNAPSHOT_TEST_LOCK.lock().unwrap();
         let url = "wss://collect.example.com/";
 
         API_REQUESTS_TOTAL
