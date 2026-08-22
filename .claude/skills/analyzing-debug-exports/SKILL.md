@@ -98,6 +98,26 @@ parallel and is NOT on the critical path — don't add it to totals.
 - Pubkeys print in raw secp debug form (64-byte x‖y), not compressed
   33-byte — payment hashes, txids, and scids are the reliable join keys.
 
+## Bandwidth snapshot lines
+
+Logs also contain periodic bandwidth snapshots, target `conduit::bandwidth`,
+one JSON object per line:
+
+- `ts` — snapshot time, ms epoch
+- `since` — app-start time, ms epoch; a change in `since` between lines
+  means the app restarted and the counters below reset
+- `os_rx` / `os_tx` — per-app wire bytes since device boot, from Android
+  TrafficStats; `null` if unavailable (e.g. iOS)
+- `entries` — array of `{kind: guardian|gateway, url, method, reqs, errs,
+  tx, rx}`, cumulative session counters since `since`; `tx`/`rx` are
+  payload-JSON bytes, not wire bytes
+
+Lines are emitted every 10 s but deduplicated: unchanged state emits
+nothing, and `os_rx`/`os_tx` are quantized to 64 KB steps for the change
+check so transport keepalive/TLS noise doesn't force a line every tick. A
+fresh snapshot is always logged right before export, so every tar ends
+with current counters. Diff consecutive lines for per-interval rates.
+
 ## DB snapshot
 
 `rust/examples/db_smoke.rs` opens a snapshot and scans raw KV pairs
