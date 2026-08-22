@@ -18,6 +18,7 @@ import 'package:conduit/screens/onchain_address_screen.dart';
 import 'package:conduit/screens/wallet_v2_receive_screen.dart';
 import 'package:conduit/drawers/scanner_drawer.dart';
 import 'package:conduit/drawers/payment_details_drawer.dart';
+import 'package:conduit/screens/bandwidth_screen.dart';
 import 'package:conduit/screens/connection_status_screen.dart';
 import 'package:conduit/bridge_generated.dart/lnurl.dart';
 import 'package:conduit/drawers/ecash_drawer.dart';
@@ -368,6 +369,18 @@ class _FederationScreenState extends State<FederationScreen> {
         ),
         centerTitle: false,
         actions: [
+          IconButton(
+            icon: const Icon(
+              PhosphorIconsRegular.chartBar,
+              size: smallIconSize,
+            ),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    BandwidthScreen(clientFactory: widget.clientFactory),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(PhosphorIconsRegular.at, size: smallIconSize),
             onPressed: _onLightningAddress,

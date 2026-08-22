@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:conduit/bridge_generated.dart/bandwidth.dart';
@@ -18,12 +20,15 @@ class BandwidthScreen extends StatefulWidget {
   State<BandwidthScreen> createState() => _BandwidthScreenState();
 }
 
-class _BandwidthData {
+/// A single poll tick: the stats/traffic snapshot plus the moment it was
+/// taken, so rate math can use the real elapsed time between ticks instead
+/// of assuming the timer fires exactly on schedule.
+class _Sample {
   final BandwidthStats stats;
-  final Map<String, String> guardianNames;
   final ({int rx, int tx})? traffic;
+  final DateTime at;
 
-  _BandwidthData(this.stats, this.guardianNames, this.traffic);
+  _Sample(this.stats, this.traffic, this.at);
 }
 
 /// One aggregated row (either per method or per endpoint).
@@ -41,96 +46,116 @@ class _Row {
 }
 
 class _BandwidthScreenState extends State<BandwidthScreen> {
-  late Future<_BandwidthData> _data;
+  static const _tickInterval = Duration(seconds: 1);
+
+  Map<String, String> _guardianNames = const {};
+  _Sample? _previous;
+  _Sample? _current;
+  Object? _error;
+  Timer? _timer;
+  bool _ticking = false;
 
   @override
   void initState() {
     super.initState();
-    _data = _load();
+    _init();
   }
 
-  Future<_BandwidthData> _load() async {
-    final stats = await bandwidthStats();
-    final names = await widget.clientFactory.guardianNames();
-    final traffic = await TrafficStatsReader.read();
-
-    return _BandwidthData(stats, Map.fromEntries(
-      names.map((pair) => MapEntry(pair.$1, pair.$2)),
-    ), traffic);
-  }
-
-  Future<void> _refresh() async {
-    final data = _load();
-    setState(() => _data = data);
+  Future<void> _init() async {
     try {
-      await data;
+      final names = await widget.clientFactory.guardianNames();
+      if (!mounted) return;
+      setState(() {
+        _guardianNames = Map.fromEntries(
+          names.map((pair) => MapEntry(pair.$1, pair.$2)),
+        );
+      });
     } catch (_) {
-      // FutureBuilder shows the error state; avoid an unhandled
-      // rejection escaping RefreshIndicator.onRefresh.
+      // Guardian names are cosmetic labels; fall back to raw URLs.
     }
+
+    await _tick();
+    if (!mounted) return;
+    _timer = Timer.periodic(_tickInterval, (_) => _tick());
+  }
+
+  Future<void> _tick() async {
+    if (_ticking) return;
+    _ticking = true;
+    try {
+      final stats = await bandwidthStats();
+      final traffic = await TrafficStatsReader.read();
+      if (!mounted) return;
+      setState(() {
+        _previous = _current;
+        _current = _Sample(stats, traffic, DateTime.now());
+        _error = null;
+      });
+    } catch (e) {
+      // Swallow tick failures and keep showing the last good data; the
+      // next tick usually recovers. Only surface an error state if we've
+      // never had a successful sample.
+      if (!mounted) return;
+      setState(() => _error = e);
+    } finally {
+      _ticking = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Bandwidth')),
-      body: FutureBuilder<_BandwidthData>(
-        future: _data,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Failed to load bandwidth stats',
-                      style: mediumStyle,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      snapshot.error.toString(),
-                      style: smallStyle.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: () => setState(() => _data = _load()),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
+      body: _current == null
+          ? (_error != null ? _buildError(_error!) : _buildLoading())
+          : _buildContent(_current!),
+    );
+  }
+
+  Widget _buildLoading() {
+    return const Center(child: CircularProgressIndicator());
+  }
+
+  Widget _buildError(Object error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Failed to load bandwidth stats', style: mediumStyle),
+            const SizedBox(height: 8),
+            Text(
+              error.toString(),
+              style: smallStyle.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-            );
-          }
-
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: _buildContent(snapshot.data!),
-          );
-        },
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            TextButton(onPressed: _tick, child: const Text('Retry')),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildContent(_BandwidthData data) {
-    final entries = data.stats.entries;
+  Widget _buildContent(_Sample sample) {
+    final entries = sample.stats.entries;
 
     return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(0, 16, 0, 32),
       child: BleedColumn(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SectionHeader(title: 'Session'),
-          BorderedList.column(children: [_buildSummaryTile(data)]),
+          BorderedList.column(children: [_buildSummaryTile(sample)]),
           const SizedBox(height: 16),
           const SectionHeader(title: 'By RPC Method'),
           BorderedList.column(
@@ -150,7 +175,8 @@ class _BandwidthScreenState extends State<BandwidthScreen> {
               for (final row in _aggregate(
                 entries,
                 (e) => e.url,
-                (e) => data.guardianNames[e.url] ??
+                (e) =>
+                    _guardianNames[e.url] ??
                     (e.kind == 'gateway' ? 'Gateway ${e.url}' : e.url),
               ))
                 _buildRowTile(row),
@@ -161,15 +187,17 @@ class _BandwidthScreenState extends State<BandwidthScreen> {
     );
   }
 
-  Widget _buildSummaryTile(_BandwidthData data) {
-    final entries = data.stats.entries;
+  Widget _buildSummaryTile(_Sample sample) {
+    final entries = sample.stats.entries;
     final requests = entries.fold<int>(0, (sum, e) => sum + e.requests);
     final sent = entries.fold<int>(0, (sum, e) => sum + e.bytesSent);
     final received = entries.fold<int>(0, (sum, e) => sum + e.bytesReceived);
-    final since = DateTime.fromMillisecondsSinceEpoch(data.stats.sinceEpochMs);
+    final since = DateTime.fromMillisecondsSinceEpoch(
+      sample.stats.sinceEpochMs,
+    );
     final uptime = DateTime.now().difference(since);
 
-    final traffic = data.traffic;
+    final traffic = sample.traffic;
     final osLine = traffic == null
         ? 'OS wire bytes unavailable'
         : 'OS since boot: ↑ ${_formatBytes(traffic.tx)} ↓ ${_formatBytes(traffic.rx)}';
@@ -186,6 +214,7 @@ class _BandwidthScreenState extends State<BandwidthScreen> {
             '$requests requests · ↑ ${_formatBytes(sent)} ↓ ${_formatBytes(received)}',
             style: mediumStyle,
           ),
+          Text(_buildRateLine(), style: mediumStyle),
           Text(
             'Session ${_formatDuration(uptime)} · $osLine',
             style: smallStyle.copyWith(
@@ -195,6 +224,68 @@ class _BandwidthScreenState extends State<BandwidthScreen> {
         ],
       ),
     );
+  }
+
+  /// The "now" line: payload and OS wire throughput computed from the
+  /// actual elapsed time between the last two samples, not an assumed
+  /// tick interval. Shows zeros until a second sample exists.
+  String _buildRateLine() {
+    final prev = _previous;
+    final cur = _current;
+    if (prev == null || cur == null) {
+      return '↑ 0 B/s ↓ 0 B/s · 0.0 req/s';
+    }
+
+    final elapsedSeconds = cur.at.difference(prev.at).inMilliseconds / 1000.0;
+    if (elapsedSeconds <= 0) {
+      return '↑ 0 B/s ↓ 0 B/s · 0.0 req/s';
+    }
+
+    final prevSent = prev.stats.entries.fold<int>(
+      0,
+      (sum, e) => sum + e.bytesSent,
+    );
+    final prevReceived = prev.stats.entries.fold<int>(
+      0,
+      (sum, e) => sum + e.bytesReceived,
+    );
+    final prevRequests = prev.stats.entries.fold<int>(
+      0,
+      (sum, e) => sum + e.requests,
+    );
+    final curSent = cur.stats.entries.fold<int>(
+      0,
+      (sum, e) => sum + e.bytesSent,
+    );
+    final curReceived = cur.stats.entries.fold<int>(
+      0,
+      (sum, e) => sum + e.bytesReceived,
+    );
+    final curRequests = cur.stats.entries.fold<int>(
+      0,
+      (sum, e) => sum + e.requests,
+    );
+
+    final sentRate = (curSent - prevSent) / elapsedSeconds;
+    final receivedRate = (curReceived - prevReceived) / elapsedSeconds;
+    final requestRate = (curRequests - prevRequests) / elapsedSeconds;
+
+    var line =
+        '↑ ${_formatBytes(sentRate.round())}/s '
+        '↓ ${_formatBytes(receivedRate.round())}/s · '
+        '${requestRate.toStringAsFixed(1)} req/s';
+
+    final prevTraffic = prev.traffic;
+    final curTraffic = cur.traffic;
+    if (prevTraffic != null && curTraffic != null) {
+      final osTxRate = (curTraffic.tx - prevTraffic.tx) / elapsedSeconds;
+      final osRxRate = (curTraffic.rx - prevTraffic.rx) / elapsedSeconds;
+      line +=
+          ' · OS ↑ ${_formatBytes(osTxRate.round())}/s '
+          '↓ ${_formatBytes(osRxRate.round())}/s';
+    }
+
+    return line;
   }
 
   Widget _buildRowTile(_Row row) {
@@ -229,8 +320,9 @@ class _BandwidthScreenState extends State<BandwidthScreen> {
     );
   }
 
-  /// Aggregate entries by [key], label rows via [label], sort by total
-  /// bytes descending.
+  /// Aggregate entries by [key], label rows via [label]. Stable sort by
+  /// total bytes descending, tiebreak on label ascending, so rows with
+  /// equal totals don't shuffle between ticks.
   List<_Row> _aggregate(
     List<BandwidthEntry> entries,
     String Function(BandwidthEntry) key,
@@ -250,7 +342,11 @@ class _BandwidthScreenState extends State<BandwidthScreen> {
     }
 
     final sorted = rows.values.toList()
-      ..sort((a, b) => b.totalBytes.compareTo(a.totalBytes));
+      ..sort((a, b) {
+        final byBytes = b.totalBytes.compareTo(a.totalBytes);
+        if (byBytes != 0) return byBytes;
+        return a.label.compareTo(b.label);
+      });
     return sorted;
   }
 
