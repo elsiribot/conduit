@@ -94,6 +94,8 @@ pub fn init_logging(app_dir: String) -> Result<(), String> {
 
     tracing::info!(target: "conduit", "file logging initialized");
 
+    crate::bandwidth::record_app_start();
+
     Ok(())
 }
 

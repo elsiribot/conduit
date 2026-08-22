@@ -1,4 +1,5 @@
 mod account;
+mod bandwidth;
 mod client;
 mod currency;
 mod db;
@@ -34,6 +35,7 @@ pub use account::Account;
 pub use client::ConduitClient;
 pub use currency::{FiatCurrency, find_fiat_currency, list_fiat_currencies};
 pub use events::{ConduitPayment, PaymentNotification, PaymentType, RecentPaymentsUpdate};
+pub use bandwidth::{BandwidthEntry, BandwidthStats, bandwidth_stats, log_bandwidth_snapshot};
 pub use factory::{ConduitClientFactory, ConduitContact, FederationInfo};
 pub use fountain::{ECashDecoder, ECashEncoder};
 pub use lnurl::{LnurlWrapper, PayResponseWrapper, lnurl_fetch_limits, lnurl_resolve, parse_lnurl};
