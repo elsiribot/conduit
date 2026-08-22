@@ -7,6 +7,8 @@ import 'package:conduit/bridge_generated.dart/lib.dart';
 import 'package:conduit/bridge_generated.dart/client.dart';
 import 'package:conduit/bridge_generated.dart/currency.dart';
 import 'package:conduit/bridge_generated.dart/factory.dart';
+import 'package:conduit/bridge_generated.dart/bandwidth.dart';
+import 'package:conduit/utils/traffic_stats.dart';
 import 'package:conduit/screens/federation_screen.dart';
 import 'package:conduit/screens/display_recovery_phrase_screen.dart';
 import 'package:conduit/screens/select_currency_screen.dart';
@@ -223,6 +225,17 @@ class _BaseScreenState extends State<BaseScreen> {
 
   Future<void> _handleDebugExportTap() async {
     try {
+      // Make sure the exported log ends with a fresh bandwidth snapshot.
+      try {
+        final traffic = await TrafficStatsReader.read();
+        await logBandwidthSnapshot(
+          osRxBytes: traffic?.rx,
+          osTxBytes: traffic?.tx,
+        );
+      } catch (_) {
+        // Snapshot logging must never block the export.
+      }
+
       final tmpDir = await getTemporaryDirectory();
 
       final tarPath = await widget.clientFactory.exportDebugArchive(

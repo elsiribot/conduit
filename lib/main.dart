@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:conduit/utils/styles.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,6 +10,8 @@ import 'package:conduit/bridge_generated.dart/frb_generated.dart';
 import 'package:conduit/bridge_generated.dart/lib.dart';
 import 'package:conduit/bridge_generated.dart/logging.dart';
 import 'package:conduit/bridge_generated.dart/factory.dart';
+import 'package:conduit/bridge_generated.dart/bandwidth.dart';
+import 'package:conduit/utils/traffic_stats.dart';
 import 'package:conduit/screens/landing_screen.dart';
 import 'package:conduit/screens/base_screen.dart';
 import 'package:conduit/screens/home_screen.dart';
@@ -32,6 +35,20 @@ void main() async {
   } catch (e) {
     debugPrint('Failed to initialize file logging: $e');
   }
+
+  // Bandwidth snapshot logging: cheap no-op inside Rust when nothing
+  // changed, so the tight cadence is safe. See the bandwidth-monitor spec.
+  Timer.periodic(const Duration(seconds: 10), (_) async {
+    try {
+      final traffic = await TrafficStatsReader.read();
+      await logBandwidthSnapshot(
+        osRxBytes: traffic?.rx,
+        osTxBytes: traffic?.tx,
+      );
+    } catch (_) {
+      // Logging must never break the app.
+    }
+  });
 
   final db = await openDatabase(dbPath: dir.path);
 
