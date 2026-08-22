@@ -62,7 +62,12 @@ class _BandwidthScreenState extends State<BandwidthScreen> {
   Future<void> _refresh() async {
     final data = _load();
     setState(() => _data = data);
-    await data;
+    try {
+      await data;
+    } catch (_) {
+      // FutureBuilder shows the error state; avoid an unhandled
+      // rejection escaping RefreshIndicator.onRefresh.
+    }
   }
 
   @override

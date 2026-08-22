@@ -29,7 +29,7 @@ fn now_ms() -> i64 {
 }
 
 fn app_start_ms() -> i64 {
-    APP_START_MS.get().copied().unwrap_or_else(now_ms)
+    *APP_START_MS.get_or_init(now_ms)
 }
 
 #[frb]
@@ -132,8 +132,12 @@ fn snapshot_line(os_rx: Option<i64>, os_tx: Option<i64>) -> Option<String> {
 
     let mut hasher = DefaultHasher::new();
     entries.hash(&mut hasher);
-    os_rx.hash(&mut hasher);
-    os_tx.hash(&mut hasher);
+    // Quantize OS byte counts to 64 KB steps for the change check only (the
+    // logged values stay exact): connection keepalive/TLS chatter ticks
+    // TrafficStats even with no API activity, so hashing the raw counters
+    // would defeat idle dedup while a connection is open.
+    os_rx.map(|v| v / 65_536).hash(&mut hasher);
+    os_tx.map(|v| v / 65_536).hash(&mut hasher);
     let hash = hasher.finish();
 
     {
@@ -232,7 +236,16 @@ mod tests {
         assert!(third.is_some(), "counter bump re-enables emission");
 
         let fourth = snapshot_line(Some(1000), Some(9000));
-        assert!(fourth.is_some(), "os byte change re-enables emission");
+        assert!(
+            fourth.is_none(),
+            "os byte change within the same 64KB bucket is quantized away (keepalive noise)"
+        );
+
+        let fifth = snapshot_line(Some(1000), Some(200_000));
+        assert!(
+            fifth.is_some(),
+            "os byte change crossing a 64KB bucket re-enables emission"
+        );
     }
 
     #[test]

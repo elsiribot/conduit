@@ -175,7 +175,10 @@ debug page is enough.
   and counts an error result correctly.
 - **App crate:** unit test for `bandwidth_stats()` gathering/joining, and for
   the snapshot dedup guard (second identical snapshot emits nothing; a
-  counter bump re-enables emission).
+  counter bump re-enables emission). OS byte counts are quantized to 64KB
+  steps for the change check, so transport keepalive/TLS chatter that ticks
+  TrafficStats without any API activity doesn't re-trigger emission — the
+  logged `os_rx`/`os_tx` values themselves remain exact.
 - **Manual:** on-device — open the bandwidth page after a payment, verify
   guardian rows and `module_*` methods appear; export a tar and check
   `conduit::bandwidth` lines parse as JSON.
