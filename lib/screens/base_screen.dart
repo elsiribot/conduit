@@ -9,6 +9,7 @@ import 'package:conduit/bridge_generated.dart/currency.dart';
 import 'package:conduit/bridge_generated.dart/factory.dart';
 import 'package:conduit/bridge_generated.dart/bandwidth.dart';
 import 'package:conduit/utils/traffic_stats.dart';
+import 'package:conduit/screens/bandwidth_screen.dart';
 import 'package:conduit/screens/federation_screen.dart';
 import 'package:conduit/screens/display_recovery_phrase_screen.dart';
 import 'package:conduit/screens/select_currency_screen.dart';
@@ -79,6 +80,7 @@ class _BaseScreenState extends State<BaseScreen> {
             children: [
               _buildSeedPhraseCard(),
               _buildCurrencyCard(),
+              _buildBandwidthCard(),
               _buildDebugExportCard(),
             ],
           ),
@@ -211,6 +213,23 @@ class _BaseScreenState extends State<BaseScreen> {
       title: 'Select Currency',
       subtitle: _currencyName,
       onTap: _handleCurrencyTap,
+    );
+  }
+
+  Widget _buildBandwidthCard() {
+    return SettingsCard(
+      icon: PhosphorIconsRegular.chartBar,
+      title: 'Bandwidth Monitor',
+      subtitle: 'API requests and traffic',
+      onTap: _handleBandwidthTap,
+    );
+  }
+
+  void _handleBandwidthTap() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BandwidthScreen(clientFactory: widget.clientFactory),
+      ),
     );
   }
 
