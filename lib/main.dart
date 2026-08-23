@@ -11,7 +11,7 @@ import 'package:conduit/bridge_generated.dart/lib.dart';
 import 'package:conduit/bridge_generated.dart/logging.dart';
 import 'package:conduit/bridge_generated.dart/factory.dart';
 import 'package:conduit/bridge_generated.dart/bandwidth.dart';
-import 'package:conduit/utils/traffic_stats.dart';
+import 'package:conduit/utils/session_traffic.dart';
 import 'package:conduit/screens/landing_screen.dart';
 import 'package:conduit/screens/base_screen.dart';
 import 'package:conduit/screens/home_screen.dart';
@@ -38,12 +38,15 @@ void main() async {
 
   // Bandwidth snapshot logging: cheap no-op inside Rust when nothing
   // changed, so the tight cadence is safe. See the bandwidth-monitor spec.
+  // Routed through SessionTraffic so the session baseline is captured
+  // early even if the bandwidth screen is never opened; the log still gets
+  // the absolute since-boot values, unchanged.
   Timer.periodic(const Duration(seconds: 10), (_) async {
     try {
-      final traffic = await TrafficStatsReader.read();
+      final traffic = await SessionTraffic.read();
       await logBandwidthSnapshot(
-        osRxBytes: traffic?.rx,
-        osTxBytes: traffic?.tx,
+        osRxBytes: traffic.current?.rx,
+        osTxBytes: traffic.current?.tx,
       );
     } catch (_) {
       // Logging must never break the app.

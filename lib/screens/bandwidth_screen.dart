@@ -5,7 +5,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:conduit/bridge_generated.dart/bandwidth.dart';
 import 'package:conduit/bridge_generated.dart/factory.dart';
 import 'package:conduit/utils/styles.dart';
-import 'package:conduit/utils/traffic_stats.dart';
+import 'package:conduit/utils/session_traffic.dart';
 import 'package:conduit/widgets/bleed_column_widget.dart';
 import 'package:conduit/widgets/bordered_list_widget.dart';
 import 'package:conduit/widgets/icon_chip_widget.dart';
@@ -26,9 +26,10 @@ class BandwidthScreen extends StatefulWidget {
 class _Sample {
   final BandwidthStats stats;
   final ({int rx, int tx})? traffic;
+  final ({int rx, int tx})? sessionTraffic;
   final DateTime at;
 
-  _Sample(this.stats, this.traffic, this.at);
+  _Sample(this.stats, this.traffic, this.sessionTraffic, this.at);
 }
 
 /// One aggregated row (either per method or per endpoint).
@@ -84,11 +85,16 @@ class _BandwidthScreenState extends State<BandwidthScreen> {
     _ticking = true;
     try {
       final stats = await bandwidthStats();
-      final traffic = await TrafficStatsReader.read();
+      final traffic = await SessionTraffic.read();
       if (!mounted) return;
       setState(() {
         _previous = _current;
-        _current = _Sample(stats, traffic, DateTime.now());
+        _current = _Sample(
+          stats,
+          traffic.current,
+          traffic.session,
+          DateTime.now(),
+        );
         _error = null;
       });
     } catch (e) {
@@ -197,10 +203,21 @@ class _BandwidthScreenState extends State<BandwidthScreen> {
     );
     final uptime = DateTime.now().difference(since);
 
-    final traffic = sample.traffic;
-    final osLine = traffic == null
-        ? 'OS wire bytes unavailable'
-        : 'OS since boot: ↑ ${_formatBytes(traffic.tx)} ↓ ${_formatBytes(traffic.rx)}';
+    final session = sample.sessionTraffic;
+    String osLine;
+    if (session == null) {
+      osLine = 'OS session unavailable';
+    } else {
+      final payloadTotal = sent + received;
+      final overhead = payloadTotal == 0
+          ? '—'
+          : _formatSignedPercent(
+              (session.rx + session.tx) / payloadTotal * 100 - 100,
+            );
+      osLine =
+          'OS session: ↑ ${_formatBytes(session.tx)} ↓ ${_formatBytes(session.rx)} '
+          '($overhead overhead)';
+    }
 
     return ListTile(
       contentPadding: listTilePadding,
@@ -357,6 +374,12 @@ class _BandwidthScreenState extends State<BandwidthScreen> {
       return '${(bytes / 1000000).toStringAsFixed(2)} MB';
     }
     return '${(bytes / 1000000000).toStringAsFixed(2)} GB';
+  }
+
+  /// Signed, no-decimal percentage, e.g. "+38%" or "-4%".
+  String _formatSignedPercent(double value) {
+    final rounded = value.round();
+    return rounded >= 0 ? '+$rounded%' : '$rounded%';
   }
 
   String _formatDuration(Duration duration) {
