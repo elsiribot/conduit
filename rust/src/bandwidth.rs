@@ -7,6 +7,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use fedimint_connectors::bandwidth::{API_PAYLOAD_BYTES_TOTAL, API_REQUESTS_TOTAL};
 use flutter_rust_bridge::frb;
 use serde::Serialize;
 
@@ -54,6 +55,28 @@ pub struct BandwidthEntry {
     pub bytes_sent: i64,
     #[serde(rename = "rx")]
     pub bytes_received: i64,
+}
+
+/// Record one of the app's own web requests (exchange rates, lnurl) into the
+/// same counter families the vendored connectors crate uses for
+/// guardian/gateway traffic, with `kind="web"`. Mirrors the labeling
+/// semantics of `fedimint_connectors::bandwidth::record()`: `received: None`
+/// means the request failed (`result="error"`, no received bytes recorded).
+pub(crate) fn count_web_request(host: &str, method: &str, sent: u64, received: Option<u64>) {
+    API_PAYLOAD_BYTES_TOTAL
+        .with_label_values(&["web", host, method, "sent"])
+        .inc_by(sent);
+
+    let result_label = if received.is_some() { "ok" } else { "error" };
+    API_REQUESTS_TOTAL
+        .with_label_values(&["web", host, method, result_label])
+        .inc();
+
+    if let Some(received) = received {
+        API_PAYLOAD_BYTES_TOTAL
+            .with_label_values(&["web", host, method, "received"])
+            .inc_by(received);
+    }
 }
 
 /// Gather the two `conduit_api_*` families from the shared registry and
@@ -245,6 +268,62 @@ mod tests {
         assert!(
             fifth.is_some(),
             "os byte change crossing a 64KB bucket re-enables emission"
+        );
+    }
+
+    #[test]
+    fn counts_web_request_ok_and_payload_bytes() {
+        // Bumps shared registry counters, which would otherwise perturb the
+        // whole-registry hash the snapshot-dedup tests rely on.
+        let _guard = SNAPSHOT_TEST_LOCK.lock().unwrap();
+        let host = "https://web-ok.example.com/";
+
+        count_web_request(host, "web_ok_method", 10, Some(123));
+
+        assert_eq!(
+            API_REQUESTS_TOTAL
+                .with_label_values(&["web", host, "web_ok_method", "ok"])
+                .get(),
+            1
+        );
+        assert_eq!(
+            API_PAYLOAD_BYTES_TOTAL
+                .with_label_values(&["web", host, "web_ok_method", "sent"])
+                .get(),
+            10
+        );
+        assert_eq!(
+            API_PAYLOAD_BYTES_TOTAL
+                .with_label_values(&["web", host, "web_ok_method", "received"])
+                .get(),
+            123
+        );
+    }
+
+    #[test]
+    fn counts_web_request_error_without_received_bytes() {
+        let _guard = SNAPSHOT_TEST_LOCK.lock().unwrap();
+        let host = "https://web-err.example.com/";
+
+        count_web_request(host, "web_err_method", 45, None);
+
+        assert_eq!(
+            API_REQUESTS_TOTAL
+                .with_label_values(&["web", host, "web_err_method", "error"])
+                .get(),
+            1
+        );
+        assert_eq!(
+            API_PAYLOAD_BYTES_TOTAL
+                .with_label_values(&["web", host, "web_err_method", "sent"])
+                .get(),
+            45
+        );
+        assert_eq!(
+            API_PAYLOAD_BYTES_TOTAL
+                .with_label_values(&["web", host, "web_err_method", "received"])
+                .get(),
+            0
         );
     }
 

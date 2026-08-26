@@ -15,6 +15,8 @@ struct ExchangeRate {
     rate: f64,
 }
 
+const EXCHANGE_RATE_HOST: &str = "https://price-feed.dev.fedibtc.com/";
+
 /// Cached exchange rate: BTC price in user's currency (e.g., 94000.0 for $94k)
 pub(crate) type ExchangeRateCache = Arc<Mutex<Option<(f64, Instant)>>>;
 
@@ -36,10 +38,27 @@ pub(crate) async fn fetch_exchange_rate(
 
     let response = reqwest::get("https://price-feed.dev.fedibtc.com/latest")
         .await
-        .map_err(|_| "Failed to fetch exchange rates".to_string())?
-        .json::<FediPriceResponse>()
-        .await
-        .map_err(|_| "Failed to parse exchange rates".to_string())?;
+        .map_err(|_| {
+            crate::bandwidth::count_web_request(EXCHANGE_RATE_HOST, "exchange_rate", 0, None);
+            "Failed to fetch exchange rates".to_string()
+        })?;
+
+    let bytes = response.bytes().await.map_err(|_| {
+        crate::bandwidth::count_web_request(EXCHANGE_RATE_HOST, "exchange_rate", 0, None);
+        "Failed to parse exchange rates".to_string()
+    })?;
+
+    let response: FediPriceResponse = serde_json::from_slice(&bytes).map_err(|_| {
+        crate::bandwidth::count_web_request(EXCHANGE_RATE_HOST, "exchange_rate", 0, None);
+        "Failed to parse exchange rates".to_string()
+    })?;
+
+    crate::bandwidth::count_web_request(
+        EXCHANGE_RATE_HOST,
+        "exchange_rate",
+        0,
+        Some(bytes.len() as u64),
+    );
 
     let btc_to_usd = response
         .prices

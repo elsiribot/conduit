@@ -311,6 +311,8 @@ class _BandwidthScreenState extends State<BandwidthScreen> {
       leading: IconChip(
         icon: row.kind == 'gateway'
             ? PhosphorIconsRegular.lightning
+            : row.kind == 'web'
+            ? PhosphorIconsRegular.globe
             : PhosphorIconsRegular.hardDrives,
       ),
       title: Column(

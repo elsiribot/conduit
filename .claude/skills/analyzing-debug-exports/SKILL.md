@@ -108,9 +108,15 @@ one JSON object per line:
   means the app restarted and the counters below reset
 - `os_rx` / `os_tx` — per-app wire bytes since device boot, from Android
   TrafficStats; `null` if unavailable (e.g. iOS)
-- `entries` — array of `{kind: guardian|gateway, url, method, reqs, errs,
+- `entries` — array of `{kind: guardian|gateway|web, url, method, reqs, errs,
   tx, rx}`, cumulative session counters since `since`; `tx`/`rx` are
-  payload-JSON bytes, not wire bytes
+  payload-JSON bytes, not wire bytes. `kind: web` covers the app's own HTTP
+  calls (exchange-rate fetch, lnurl pay/invoice) — exchange-rate byte counts
+  are exact, but lnurl `rx` is an approximation (re-serialized parsed
+  response, since the HTTP call happens inside `fedimint-lnurl` and the raw
+  wire body isn't observable there). Client-side lnurl validation failures
+  (e.g. amount outside the payee's min/max sendable range) never reach the
+  network and are not counted.
 
 Lines are emitted every 10 s but deduplicated: unchanged state emits
 nothing, and `os_rx`/`os_tx` are quantized to 64 KB steps for the change
