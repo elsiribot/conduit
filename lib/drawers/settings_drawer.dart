@@ -21,6 +21,8 @@ class SettingsDrawer extends StatefulWidget {
   final VoidCallback onSelectCurrency;
   final VoidCallback onSelectAccount;
   final VoidCallback onSelectConnection;
+  final VoidCallback onSelectBandwidth;
+  final VoidCallback onSelectDebugExport;
   // Null with only one mint added: removing the last one would strand the
   // wallet on onboarding, so the row is left out entirely.
   final VoidCallback? onSelectRemove;
@@ -33,6 +35,8 @@ class SettingsDrawer extends StatefulWidget {
     required this.onSelectCurrency,
     required this.onSelectAccount,
     required this.onSelectConnection,
+    required this.onSelectBandwidth,
+    required this.onSelectDebugExport,
     required this.onSelectRemove,
   });
 
@@ -44,6 +48,8 @@ class SettingsDrawer extends StatefulWidget {
     required VoidCallback onSelectCurrency,
     required VoidCallback onSelectAccount,
     required VoidCallback onSelectConnection,
+    required VoidCallback onSelectBandwidth,
+    required VoidCallback onSelectDebugExport,
     required VoidCallback? onSelectRemove,
   }) {
     return DrawerUtils.show(
@@ -55,6 +61,8 @@ class SettingsDrawer extends StatefulWidget {
         onSelectCurrency: onSelectCurrency,
         onSelectAccount: onSelectAccount,
         onSelectConnection: onSelectConnection,
+        onSelectBandwidth: onSelectBandwidth,
+        onSelectDebugExport: onSelectDebugExport,
         onSelectRemove: onSelectRemove,
       ),
     );
@@ -105,6 +113,18 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               onTap: () => _select(widget.onSelectAccount),
             ),
             _buildConnectionCard(),
+            SettingsCard(
+              icon: PhosphorIconsRegular.chartBar,
+              title: 'Bandwidth Monitor',
+              subtitle: 'API requests and traffic',
+              onTap: () => _select(widget.onSelectBandwidth),
+            ),
+            SettingsCard(
+              icon: PhosphorIconsRegular.bug,
+              title: 'Export Debug Data',
+              subtitle: 'DB state and logs since last export',
+              onTap: () => _select(widget.onSelectDebugExport),
+            ),
             // Destroys what the mint still holds, so it sits at the bottom
             // away from the rows that only navigate.
             if (onSelectRemove != null)

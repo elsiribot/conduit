@@ -5,8 +5,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:conduit/bridge_generated.dart/account.dart';
+import 'package:conduit/bridge_generated.dart/bandwidth.dart';
 import 'package:conduit/bridge_generated.dart/client.dart';
 import 'package:conduit/bridge_generated.dart/events.dart';
 import 'package:conduit/bridge_generated.dart/factory.dart';
@@ -23,6 +26,7 @@ import 'package:conduit/drawers/scanner_drawer.dart';
 import 'package:conduit/drawers/select_account_drawer.dart';
 import 'package:conduit/drawers/select_page_drawer.dart';
 import 'package:conduit/drawers/settings_drawer.dart';
+import 'package:conduit/screens/bandwidth_screen.dart';
 import 'package:conduit/screens/connection_status_screen.dart';
 import 'package:conduit/screens/display_contacts_screen.dart';
 import 'package:conduit/screens/display_lnurl_screen.dart';
@@ -38,6 +42,7 @@ import 'package:conduit/utils/auth_utils.dart';
 import 'package:conduit/utils/currency_utils.dart';
 import 'package:conduit/utils/notification_utils.dart';
 import 'package:conduit/utils/styles.dart';
+import 'package:conduit/utils/traffic_stats.dart';
 import 'package:conduit/widgets/amount_visibility.dart';
 import 'package:conduit/widgets/animated_balance_widget.dart';
 import 'package:conduit/widgets/animated_entry_widget.dart';
@@ -727,10 +732,47 @@ class _HomeScreenState extends State<HomeScreen> {
       onSelectCurrency: _openCurrency,
       onSelectAccount: _openSelectAccount,
       onSelectConnection: _openConnection,
+      onSelectBandwidth: _openBandwidth,
+      onSelectDebugExport: _handleDebugExport,
       // Removing the last mint would strand the wallet on onboarding, so the
       // row only appears once there is another to fall back to.
       onSelectRemove: _knownMintIds.length > 1 ? _openRemove : null,
     );
+  }
+
+  void _openBandwidth() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BandwidthScreen(clientFactory: widget.clientFactory),
+      ),
+    );
+  }
+
+  Future<void> _handleDebugExport() async {
+    try {
+      // Make sure the exported log ends with a fresh bandwidth snapshot.
+      try {
+        final traffic = await TrafficStatsReader.read();
+        await logBandwidthSnapshot(
+          osRxBytes: traffic?.rx,
+          osTxBytes: traffic?.tx,
+        );
+      } catch (_) {
+        // Snapshot logging must never block the export.
+      }
+
+      final tmpDir = await getTemporaryDirectory();
+
+      final tarPath = await widget.clientFactory.exportDebugArchive(
+        outDir: tmpDir.path,
+      );
+
+      await SharePlus.instance.share(
+        ShareParams(files: [XFile(tarPath, mimeType: 'application/x-tar')]),
+      );
+    } catch (e) {
+      if (mounted) NotificationUtils.showError(context, e.toString());
+    }
   }
 
   /// Lists the selected mint's accounts, including the ones without pages —
