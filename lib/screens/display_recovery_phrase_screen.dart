@@ -1,4 +1,4 @@
-import 'package:balanced_text/balanced_text.dart';
+import 'package:conduit/widgets/balanced_text_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:conduit/utils/styles.dart';
 import 'package:conduit/widgets/bleed_column_widget.dart';
@@ -16,6 +16,7 @@ class DisplayRecoveryPhraseScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Recovery Phrase')),
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(0, 16, 0, 32),
         child: BleedColumn(
           crossAxisAlignment: CrossAxisAlignment.stretch,

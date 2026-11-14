@@ -1,4 +1,4 @@
-import 'package:balanced_text/balanced_text.dart';
+import 'package:conduit/widgets/balanced_text_widget.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:conduit/bridge_generated.dart/client.dart';
@@ -56,11 +56,7 @@ class _ContactTileState extends State<_ContactTile> with AsyncButtonMixin {
               Text(widget.contact.name, style: mediumStyle),
               if (buttonState == AsyncButtonState.loading) ...[
                 const SizedBox(width: 8),
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+                smallSpinner,
               ],
             ],
           ),
@@ -85,11 +81,13 @@ class _ContactTileState extends State<_ContactTile> with AsyncButtonMixin {
 class DisplayContactsScreen extends StatefulWidget {
   final ConduitClient client;
   final ConduitClientFactory clientFactory;
+  final bool fiat;
 
   const DisplayContactsScreen({
     super.key,
     required this.client,
     required this.clientFactory,
+    this.fiat = false,
   });
 
   @override
@@ -139,6 +137,7 @@ class _DisplayContactsScreenState extends State<DisplayContactsScreen> {
               lnurl: contact.lnurl,
               payResponse: payResponse,
               contactName: contact.name,
+              fiat: widget.fiat,
             ),
       ),
     );

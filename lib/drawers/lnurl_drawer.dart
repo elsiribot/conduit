@@ -8,19 +8,22 @@ import 'package:conduit/widgets/bordered_list_widget.dart';
 import 'package:conduit/widgets/payment_summary_row_widget.dart';
 import 'package:conduit/widgets/async_button_widget.dart';
 import 'package:conduit/screens/lnurl_amount_screen.dart';
-import 'package:conduit/drawers/lightning_invoice_drawer.dart';
+import 'package:conduit/drawers/lightning_send_drawer.dart';
 import 'package:conduit/utils/drawer_utils.dart';
 
 class LnurlDrawer extends StatefulWidget {
   final ConduitClient client;
   final ConduitClientFactory clientFactory;
   final LnurlWrapper lnurl;
+  // The home screen's balance unit, forwarded to the amount entry it opens.
+  final bool fiat;
 
   const LnurlDrawer({
     super.key,
     required this.client,
     required this.clientFactory,
     required this.lnurl,
+    this.fiat = false,
   });
 
   static Future<void> show(
@@ -28,6 +31,7 @@ class LnurlDrawer extends StatefulWidget {
     required ConduitClient client,
     required ConduitClientFactory clientFactory,
     required LnurlWrapper lnurl,
+    bool fiat = false,
   }) {
     return DrawerUtils.show(
       context: context,
@@ -35,6 +39,7 @@ class LnurlDrawer extends StatefulWidget {
         client: client,
         clientFactory: clientFactory,
         lnurl: lnurl,
+        fiat: fiat,
       ),
     );
   }
@@ -60,7 +65,7 @@ class _LnurlDrawerState extends State<LnurlDrawer> {
       if (!mounted) return;
 
       Navigator.of(context).pop();
-      LightningInvoiceDrawer.show(
+      LightningSendDrawer.show(
         context,
         client: widget.client,
         invoice: invoice,
@@ -80,6 +85,7 @@ class _LnurlDrawerState extends State<LnurlDrawer> {
           lnurl: widget.lnurl,
           payResponse: payResponse,
           contactName: contactName,
+          fiat: widget.fiat,
         ),
       );
     }

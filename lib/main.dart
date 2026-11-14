@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:conduit/utils/styles.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,9 +8,13 @@ import 'package:overlay_support/overlay_support.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:conduit/bridge_generated.dart/frb_generated.dart';
 import 'package:conduit/bridge_generated.dart/lib.dart';
+import 'package:conduit/bridge_generated.dart/logging.dart';
 import 'package:conduit/bridge_generated.dart/factory.dart';
+import 'package:conduit/bridge_generated.dart/bandwidth.dart';
+import 'package:conduit/utils/session_traffic.dart';
 import 'package:conduit/screens/landing_screen.dart';
 import 'package:conduit/screens/base_screen.dart';
+import 'package:conduit/screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,15 +30,57 @@ void main() async {
 
   final dir = await getApplicationDocumentsDirectory();
 
+  try {
+    await initLogging(appDir: dir.path);
+  } catch (e) {
+    debugPrint('Failed to initialize file logging: $e');
+  }
+
+  // Bandwidth snapshot logging: cheap no-op inside Rust when nothing
+  // changed, so the tight cadence is safe. See the bandwidth-monitor spec.
+  // Routed through SessionTraffic so the session baseline is captured
+  // early even if the bandwidth screen is never opened; the log still gets
+  // the absolute since-boot values, unchanged.
+  Timer.periodic(const Duration(seconds: 10), (_) async {
+    try {
+      final traffic = await SessionTraffic.read();
+      await logBandwidthSnapshot(
+        osRxBytes: traffic.current?.rx,
+        osTxBytes: traffic.current?.tx,
+      );
+    } catch (_) {
+      // Logging must never break the app.
+    }
+  });
+
   final db = await openDatabase(dbPath: dir.path);
 
   final clientFactory = await ConduitClientFactory.tryLoad(db: db);
 
-  if (clientFactory != null) {
-    runApp(ConduitApp(home: BaseScreen(clientFactory: clientFactory)));
-  } else {
+  if (clientFactory == null) {
     runApp(ConduitApp(home: LandingScreen(db: db)));
+    return;
   }
+
+  // Open every account of every mint before the first frame so the wallet
+  // itself is the first thing shown (the OS splash stays up until it's ready).
+  // Only an empty wallet falls back to BaseScreen, which hosts onboarding; a
+  // mint still recovering opens with the rest and shows its progress itself.
+  final clients = await clientFactory.loadAll();
+  final selected = await clientFactory.selectedClient();
+
+  runApp(
+    ConduitApp(
+      home:
+          clients.isEmpty
+              ? BaseScreen(clientFactory: clientFactory)
+              : HomeScreen(
+                clientFactory: clientFactory,
+                initialClients: clients,
+                initialSelected: selected,
+              ),
+    ),
+  );
 }
 
 class ConduitApp extends StatelessWidget {
@@ -45,7 +92,7 @@ class ConduitApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return OverlaySupport.global(
       child: MaterialApp(
-        title: 'Conduit',
+        title: "Eric's Conduit",
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),

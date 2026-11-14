@@ -2,6 +2,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:conduit/bridge_generated.dart/client.dart';
 import 'package:conduit/bridge_generated.dart/events.dart';
 import 'package:conduit/utils/styles.dart';
 import 'package:conduit/utils/payment_utils.dart';
@@ -11,9 +12,18 @@ import 'package:conduit/widgets/amount_visibility.dart';
 import 'package:conduit/drawers/payment_details_drawer.dart';
 
 class PaymentHistoryScreen extends StatefulWidget {
+  final ConduitClient client;
   final List<ConduitPayment> payments;
+  // Whether the list opens in fiat rather than sats — set from the home screen's
+  // current balance mode so history continues in the unit the user was viewing.
+  final bool fiat;
 
-  const PaymentHistoryScreen({super.key, required this.payments});
+  const PaymentHistoryScreen({
+    super.key,
+    required this.client,
+    required this.payments,
+    this.fiat = false,
+  });
 
   @override
   State<PaymentHistoryScreen> createState() => _PaymentHistoryScreenState();
@@ -27,8 +37,10 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
   bool _outgoing = false;
 
   // A single control toggles the list between sats and fiat (no hidden step);
-  // cards without a snapshotted rate stay in sats even in fiat mode.
-  BalanceDisplay _display = BalanceDisplay.sats;
+  // cards without a snapshotted rate stay in sats even in fiat mode. Opens in
+  // whichever unit the home screen was showing.
+  late BalanceDisplay _display =
+      widget.fiat ? BalanceDisplay.fiat : BalanceDisplay.sats;
 
   void _toggleDisplay() {
     setState(() {
@@ -145,7 +157,12 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
               (context, payment) => PaymentCard(
                 key: ValueKey(payment.operationId),
                 event: payment,
-                onTap: () => PaymentDetailsDrawer.show(context, event: payment),
+                onTap:
+                    () => PaymentDetailsDrawer.show(
+                      context,
+                      event: payment,
+                      client: widget.client,
+                    ),
               ),
         ),
       ),

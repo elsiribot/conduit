@@ -5,7 +5,7 @@ import 'package:conduit/utils/styles.dart';
 import 'package:conduit/widgets/icon_chip_widget.dart';
 
 class NotificationUtils {
-  static const _defaultNotificationDuration = Duration(milliseconds: 1500);
+  static const _defaultNotificationDuration = Duration(milliseconds: 2500);
 
   static OverlaySupportEntry _showNotification(
     BuildContext context,

@@ -1,3 +1,5 @@
+mod account;
+mod bandwidth;
 mod client;
 mod currency;
 mod db;
@@ -7,6 +9,7 @@ mod factory;
 mod fountain;
 mod frb_generated;
 mod lnurl;
+mod logging;
 
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -28,12 +31,15 @@ pub use fedimint_client::OperationId;
 pub use fedimint_core::config::FederationId;
 
 // Re-export public API for FRB
-pub use client::{ConduitClient, ConduitRecoveryProgress};
+pub use account::Account;
+pub use client::ConduitClient;
 pub use currency::{FiatCurrency, find_fiat_currency, list_fiat_currencies};
 pub use events::{ConduitPayment, PaymentNotification, PaymentType, RecentPaymentsUpdate};
+pub use bandwidth::{BandwidthEntry, BandwidthStats, bandwidth_stats, log_bandwidth_snapshot};
 pub use factory::{ConduitClientFactory, ConduitContact, FederationInfo};
 pub use fountain::{ECashDecoder, ECashEncoder};
 pub use lnurl::{LnurlWrapper, PayResponseWrapper, lnurl_fetch_limits, lnurl_resolve, parse_lnurl};
+pub use logging::init_logging;
 
 #[frb(sync)]
 pub fn word_list() -> Vec<String> {
@@ -70,7 +76,7 @@ pub async fn open_database(db_path: &str) -> DatabaseWrapper {
         .expect("Could not parse db path")
         .join("client.db");
 
-    RocksDb::open_blocking(db_path, None)
+    RocksDb::open_blocking(db_path)
         .map(|db| DatabaseWrapper(db.into()))
         .expect("Could not open database")
 }

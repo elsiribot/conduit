@@ -1,4 +1,4 @@
-import 'package:balanced_text/balanced_text.dart';
+import 'package:conduit/widgets/balanced_text_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:conduit/utils/styles.dart';
@@ -107,7 +107,7 @@ class _OnchainAddressScreenState extends State<OnchainAddressScreen> {
       body: SafeArea(
         child:
             addresses.isEmpty
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: smallSpinner)
                 : _buildAddressContent(),
       ),
     );

@@ -105,11 +105,45 @@ impl PayResponseWrapper {
     }
 }
 
+/// Best-effort `scheme://host/` label for the bandwidth monitor's `url`
+/// dimension, parsed from a lnurl-pay URL / callback. Falls back to
+/// `"unknown"` when the URL doesn't parse or has no host (should not happen
+/// in practice, since these strings already round-tripped through the LNURL
+/// server).
+fn web_host_label(url: &str) -> String {
+    url::Url::parse(url)
+        .ok()
+        .and_then(|parsed| {
+            parsed
+                .host_str()
+                .map(|host| format!("{}://{}/", parsed.scheme(), host))
+        })
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+/// Serialized-body size approximation for lnurl responses: the HTTP call
+/// lives inside `fedimint-lnurl`, so the exact wire size isn't observable
+/// here. Re-serializing the parsed response is close but loses unknown
+/// fields and whitespace present in the original payload.
+fn approx_response_bytes<T: serde::Serialize>(response: &T) -> u64 {
+    serde_json::to_vec(response).map_or(0, |v| v.len() as u64)
+}
+
 #[frb]
 pub async fn lnurl_fetch_limits(lnurl: &LnurlWrapper) -> Result<PayResponseWrapper, String> {
-    fedimint_lnurl::request(&lnurl.0)
-        .await
-        .map(PayResponseWrapper)
+    let host = web_host_label(&lnurl.0);
+
+    match fedimint_lnurl::request(&lnurl.0).await {
+        Ok(response) => {
+            let received = approx_response_bytes(&response);
+            crate::bandwidth::count_web_request(&host, "lnurl_pay", 0, Some(received));
+            Ok(PayResponseWrapper(response))
+        }
+        Err(e) => {
+            crate::bandwidth::count_web_request(&host, "lnurl_pay", 0, None);
+            Err(e)
+        }
+    }
 }
 
 #[frb]
@@ -117,7 +151,35 @@ pub async fn lnurl_resolve(
     pay_response: &PayResponseWrapper,
     amount_sats: i64,
 ) -> Result<Bolt11InvoiceWrapper, String> {
-    fedimint_lnurl::get_invoice(&pay_response.0, amount_sats as u64 * 1000)
-        .await
-        .map(|response| Bolt11InvoiceWrapper(response.pr))
+    let amount_msat = amount_sats as u64 * 1000;
+
+    // fedimint_lnurl::get_invoice rejects out-of-bounds amounts before making
+    // any HTTP call. Replicate its bounds check (same error strings) so that
+    // client-side validation failures aren't counted as failed web requests.
+    if amount_msat < pay_response.0.min_sendable {
+        return Err(format!(
+            "Minimum amount is {} sats",
+            pay_response.0.min_sendable / 1000
+        ));
+    }
+    if amount_msat > pay_response.0.max_sendable {
+        return Err(format!(
+            "Maximum amount is {} sats",
+            pay_response.0.max_sendable / 1000
+        ));
+    }
+
+    let host = web_host_label(&pay_response.0.callback);
+
+    match fedimint_lnurl::get_invoice(&pay_response.0, amount_msat).await {
+        Ok(response) => {
+            let received = approx_response_bytes(&response);
+            crate::bandwidth::count_web_request(&host, "lnurl_invoice", 0, Some(received));
+            Ok(Bolt11InvoiceWrapper(response.pr))
+        }
+        Err(e) => {
+            crate::bandwidth::count_web_request(&host, "lnurl_invoice", 0, None);
+            Err(e)
+        }
+    }
 }

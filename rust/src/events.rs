@@ -1,3 +1,4 @@
+use bitcoin::hex::DisplayHex;
 use fedimint_core::module::serde_json;
 use fedimint_eventlog::{Event, EventLogEntry};
 use fedimint_lnv2_client::events::SendPaymentStatus;
@@ -8,10 +9,10 @@ use fedimint_walletv2_client::events::{
     ReceivePaymentStatus as WalletV2ReceivePaymentStatus,
     SendPaymentStatus as WalletV2SendPaymentStatus,
 };
-use bitcoin::hex::DisplayHex;
 use flutter_rust_bridge::frb;
 
 use crate::OperationId;
+use crate::account::Account;
 
 /// Type of payment
 #[frb]
@@ -44,6 +45,64 @@ pub struct ConduitPayment {
     pub fiat_currency_code: Option<String>,
 }
 
+/// One timestamped lifecycle step of a payment, derived from the persisted
+/// fedimint event log.
+#[frb]
+#[derive(Clone)]
+pub struct PaymentTimelineStep {
+    pub label: String,
+    pub timestamp_ms: i64,
+}
+
+/// Human-readable label for an event-log entry shown in a payment timeline.
+/// Falls back to the raw event kind so unmapped events still show up rather
+/// than silently disappearing from the breakdown.
+pub(crate) fn timeline_label(entry: &EventLogEntry, payload: &serde_json::Value) -> String {
+    // Core tx events carry no module; payment events do. On-chain sends
+    // terminate with a chain confirmation rather than a lightning preimage.
+    let onchain = matches!(
+        entry.module.as_ref().map(|module| module.kind.as_str()),
+        Some("wallet" | "walletv2")
+    );
+
+    let kind = entry.kind.to_string();
+
+    match kind.as_str() {
+        "payment-send" => "Initiated".to_string(),
+        "payment-receive" => "Received".to_string(),
+        "tx-created" => "Transaction submitted".to_string(),
+        "tx-accepted" => "Accepted by consensus".to_string(),
+        "tx-rejected" => "Rejected by consensus".to_string(),
+        "payment-send-update" | "payment-send-status" => match status_outcome(payload) {
+            Some(outcome) if outcome == "Success" => if onchain {
+                "Confirmed on-chain"
+            } else {
+                "Payment completed"
+            }
+            .to_string(),
+            Some(outcome) => outcome,
+            None => kind,
+        },
+        "payment-receive-update" => match status_outcome(payload) {
+            Some(outcome) if outcome == "Success" => "Completed".to_string(),
+            Some(outcome) => outcome,
+            None => kind,
+        },
+        _ => kind,
+    }
+}
+
+/// Extracts the outcome variant name from an event payload's `status` field:
+/// unit variants serialize as a plain string ("Refunded"), data-carrying
+/// variants as a single-key object ({"Success": …}).
+fn status_outcome(payload: &serde_json::Value) -> Option<String> {
+    match payload.get("status")? {
+        serde_json::Value::String(outcome) => Some(outcome.clone()),
+        serde_json::Value::Object(map) => map.keys().next().cloned(),
+        _ => None,
+    }
+}
+
 /// Notification for a recent payment event
 #[frb]
 pub struct PaymentNotification {
@@ -64,6 +123,9 @@ pub(crate) enum ParsedEvent {
     Payment {
         payment: ConduitPayment,
         operation_id: OperationId,
+        /// The balance the payment moved. A module from before accounts
+        /// writes no account, and could only have meant Primary.
+        account: Account,
     },
     Update {
         operation_id: OperationId,
@@ -108,6 +170,7 @@ pub(crate) fn parse_event_log_entry(entry: &EventLogEntry) -> Option<ParsedEvent
     if let Some(send) = parse::<fedimint_lnv2_client::events::SendPaymentEvent>(entry) {
         return Some(ParsedEvent::Payment {
             operation_id: send.operation_id,
+            account: send.account.into(),
             payment: ConduitPayment {
                 operation_id: send.operation_id.fmt_full().to_string(),
                 incoming: false,
@@ -147,12 +210,15 @@ pub(crate) fn parse_event_log_entry(entry: &EventLogEntry) -> Option<ParsedEvent
     if let Some(receive) = parse::<fedimint_lnv2_client::events::ReceivePaymentEvent>(entry) {
         return Some(ParsedEvent::Payment {
             operation_id: receive.operation_id,
+            account: receive.account.into(),
             payment: ConduitPayment {
                 operation_id: receive.operation_id.fmt_full().to_string(),
                 incoming: true,
                 payment_type: PaymentType::Lightning,
                 amount_sats: (receive.amount.msats / 1000) as i64,
-                fee_sats: None,
+                // Zero means the event predates the fee field, so hide it
+                // rather than claim the receive was free.
+                fee_sats: (receive.fee.msats > 0).then_some((receive.fee.msats / 1000) as i64),
                 timestamp: (entry.ts_usecs / 1000) as i64,
                 success: Some(true),
                 ecash: None,
@@ -168,6 +234,7 @@ pub(crate) fn parse_event_log_entry(entry: &EventLogEntry) -> Option<ParsedEvent
     if let Some(send) = parse::<fedimint_mint_client::events::SendPaymentEvent>(entry) {
         return Some(ParsedEvent::Payment {
             operation_id: send.operation_id,
+            account: Account::Primary,
             payment: ConduitPayment {
                 operation_id: send.operation_id.fmt_full().to_string(),
                 incoming: false,
@@ -189,6 +256,7 @@ pub(crate) fn parse_event_log_entry(entry: &EventLogEntry) -> Option<ParsedEvent
     if let Some(receive) = parse::<fedimint_mint_client::events::ReceivePaymentEvent>(entry) {
         return Some(ParsedEvent::Payment {
             operation_id: receive.operation_id,
+            account: Account::Primary,
             payment: ConduitPayment {
                 operation_id: receive.operation_id.fmt_full().to_string(),
                 incoming: true,
@@ -219,6 +287,7 @@ pub(crate) fn parse_event_log_entry(entry: &EventLogEntry) -> Option<ParsedEvent
     if let Some(send) = parse::<fedimint_wallet_client::events::SendPaymentEvent>(entry) {
         return Some(ParsedEvent::Payment {
             operation_id: send.operation_id,
+            account: Account::Primary,
             payment: ConduitPayment {
                 operation_id: send.operation_id.fmt_full().to_string(),
                 incoming: false,
@@ -254,6 +323,7 @@ pub(crate) fn parse_event_log_entry(entry: &EventLogEntry) -> Option<ParsedEvent
     if let Some(receive) = parse::<fedimint_wallet_client::events::ReceivePaymentEvent>(entry) {
         return Some(ParsedEvent::Payment {
             operation_id: receive.operation_id,
+            account: Account::Primary,
             payment: ConduitPayment {
                 operation_id: receive.operation_id.fmt_full().to_string(),
                 incoming: true,
@@ -277,6 +347,7 @@ pub(crate) fn parse_event_log_entry(entry: &EventLogEntry) -> Option<ParsedEvent
     if let Some(send) = parse::<fedimint_mintv2_client::SendPaymentEvent>(entry) {
         return Some(ParsedEvent::Payment {
             operation_id: send.operation_id,
+            account: send.account.into(),
             payment: ConduitPayment {
                 operation_id: send.operation_id.fmt_full().to_string(),
                 incoming: false,
@@ -298,6 +369,7 @@ pub(crate) fn parse_event_log_entry(entry: &EventLogEntry) -> Option<ParsedEvent
     if let Some(receive) = parse::<fedimint_mintv2_client::ReceivePaymentEvent>(entry) {
         return Some(ParsedEvent::Payment {
             operation_id: receive.operation_id,
+            account: receive.account.into(),
             payment: ConduitPayment {
                 operation_id: receive.operation_id.fmt_full().to_string(),
                 incoming: true,
@@ -330,6 +402,7 @@ pub(crate) fn parse_event_log_entry(entry: &EventLogEntry) -> Option<ParsedEvent
     if let Some(send) = parse::<fedimint_walletv2_client::events::SendPaymentEvent>(entry) {
         return Some(ParsedEvent::Payment {
             operation_id: send.operation_id,
+            account: send.account.into(),
             payment: ConduitPayment {
                 operation_id: send.operation_id.fmt_full().to_string(),
                 incoming: false,
@@ -365,6 +438,7 @@ pub(crate) fn parse_event_log_entry(entry: &EventLogEntry) -> Option<ParsedEvent
     if let Some(receive) = parse::<fedimint_walletv2_client::events::ReceivePaymentEvent>(entry) {
         return Some(ParsedEvent::Payment {
             operation_id: receive.operation_id,
+            account: receive.account.into(),
             payment: ConduitPayment {
                 operation_id: receive.operation_id.fmt_full().to_string(),
                 incoming: true,
@@ -374,7 +448,7 @@ pub(crate) fn parse_event_log_entry(entry: &EventLogEntry) -> Option<ParsedEvent
                 timestamp: (entry.ts_usecs / 1000) as i64,
                 success: None,
                 ecash: None,
-                txid: None,
+                txid: receive.outpoint.map(|o| o.txid.to_string()),
                 address: Some(receive.address.clone().assume_checked().to_string()),
                 fiat_amount: None,
                 fiat_currency_code: None,
@@ -398,7 +472,7 @@ pub(crate) fn parse_event_log_entry(entry: &EventLogEntry) -> Option<ParsedEvent
 }
 
 fn parse<T: Event>(entry: &EventLogEntry) -> Option<T> {
-    if entry.module.clone().map(|m| m.0) != T::MODULE {
+    if entry.module.clone().map(|m| m.kind) != T::MODULE {
         return None;
     }
 

@@ -1,4 +1,4 @@
-import 'package:balanced_text/balanced_text.dart';
+import 'package:conduit/widgets/balanced_text_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:conduit/utils/styles.dart';
 
