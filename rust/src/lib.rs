@@ -69,16 +69,19 @@ pub fn generate_mnemonic() -> MnemonicWrapper {
 pub struct DatabaseWrapper(pub(crate) Database);
 
 #[frb]
-pub async fn open_database(db_path: &str) -> DatabaseWrapper {
+pub async fn open_database(db_path: &str) -> Result<DatabaseWrapper, String> {
     fedimint_core::rustls::install_crypto_provider().await;
 
-    let db_path = PathBuf::from_str(&db_path)
-        .expect("Could not parse db path")
-        .join("client.db");
+    // Infallible: `PathBuf`'s `FromStr::Err` is `Infallible`.
+    let db_path = PathBuf::from_str(db_path).unwrap().join("client.db");
 
     RocksDb::open_blocking(db_path)
         .map(|db| DatabaseWrapper(db.into()))
-        .expect("Could not open database")
+        .map_err(|e| {
+            let err = e.to_string();
+            tracing::error!(target: "conduit", %err, "Failed to open database");
+            err
+        })
 }
 
 #[frb]

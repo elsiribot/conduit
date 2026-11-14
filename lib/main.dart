@@ -15,6 +15,7 @@ import 'package:conduit/utils/session_traffic.dart';
 import 'package:conduit/screens/landing_screen.dart';
 import 'package:conduit/screens/base_screen.dart';
 import 'package:conduit/screens/home_screen.dart';
+import 'package:conduit/screens/startup_error_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,41 +54,51 @@ void main() async {
     }
   });
 
-  final db = await openDatabase(dbPath: dir.path);
+  try {
+    final db = await openDatabase(dbPath: dir.path);
 
-  final clientFactory = await ConduitClientFactory.tryLoad(db: db);
+    final clientFactory = await ConduitClientFactory.tryLoad(db: db);
 
-  if (clientFactory == null) {
-    runApp(ConduitApp(home: LandingScreen(db: db)));
-    return;
+    if (clientFactory == null) {
+      runApp(ConduitApp(home: LandingScreen(db: db)));
+      return;
+    }
+
+    // Clients only connect to their guardians on demand and keep whatever
+    // connection they get for as long as it stays up, so a connection that
+    // died while the app was backgrounded (network change, OS-level idle
+    // teardown) otherwise sits dead until something happens to use it again.
+    // Nudging every client on resume reconnects immediately instead.
+    AppLifecycleListener(onResume: clientFactory.reconnectAll);
+
+    // Open every account of every mint before the first frame so the wallet
+    // itself is the first thing shown (the OS splash stays up until it's
+    // ready). Only an empty wallet falls back to BaseScreen, which hosts
+    // onboarding; a mint still recovering opens with the rest and shows its
+    // progress itself.
+    final clients = await clientFactory.loadAll();
+    final selected = await clientFactory.selectedClient();
+
+    runApp(
+      ConduitApp(
+        home:
+            clients.isEmpty
+                ? BaseScreen(clientFactory: clientFactory)
+                : HomeScreen(
+                  clientFactory: clientFactory,
+                  initialClients: clients,
+                  initialSelected: selected,
+                ),
+      ),
+    );
+  } catch (e) {
+    // Never leave the OS splash on screen forever: a database or client
+    // failure here used to hang with nothing drawn and nothing logged on
+    // the UI side. Surface it instead — the file/logcat log (if logging
+    // itself came up) has the Rust-side detail.
+    debugPrint('Startup failed: $e');
+    runApp(ConduitApp(home: StartupErrorScreen(error: e.toString())));
   }
-
-  // Clients only connect to their guardians on demand and keep whatever
-  // connection they get for as long as it stays up, so a connection that
-  // died while the app was backgrounded (network change, OS-level idle
-  // teardown) otherwise sits dead until something happens to use it again.
-  // Nudging every client on resume reconnects immediately instead.
-  AppLifecycleListener(onResume: clientFactory.reconnectAll);
-
-  // Open every account of every mint before the first frame so the wallet
-  // itself is the first thing shown (the OS splash stays up until it's ready).
-  // Only an empty wallet falls back to BaseScreen, which hosts onboarding; a
-  // mint still recovering opens with the rest and shows its progress itself.
-  final clients = await clientFactory.loadAll();
-  final selected = await clientFactory.selectedClient();
-
-  runApp(
-    ConduitApp(
-      home:
-          clients.isEmpty
-              ? BaseScreen(clientFactory: clientFactory)
-              : HomeScreen(
-                clientFactory: clientFactory,
-                initialClients: clients,
-                initialSelected: selected,
-              ),
-    ),
-  );
 }
 
 class ConduitApp extends StatelessWidget {

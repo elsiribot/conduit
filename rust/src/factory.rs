@@ -387,13 +387,15 @@ impl ConduitClientFactory {
     }
 
     /// Opens a mint's client from its database, as every account's view, or
-    /// `None` when the mint has no client on this device.
+    /// `None` when the mint has no client on this device, or its database
+    /// fails to open (logged rather than panicking, so one bad mint doesn't
+    /// take down every other one — or the app).
     async fn open(&self, federation_id: FederationId) -> Option<Vec<ConduitClient>> {
         if !Client::is_initialized(&self.client_database(federation_id)).await {
             return None;
         }
 
-        let client = self
+        let client = match self
             .client_builder()
             .await
             .open(
@@ -402,7 +404,13 @@ impl ConduitClientFactory {
                 self.root_secret(),
             )
             .await
-            .expect("Failed to open client");
+        {
+            Ok(client) => client,
+            Err(err) => {
+                tracing::error!(target: "conduit", %federation_id, %err, "Failed to open client");
+                return None;
+            }
+        };
 
         Some(self.views(Arc::new(client), federation_id).await)
     }
