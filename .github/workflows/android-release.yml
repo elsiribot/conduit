@@ -16,6 +16,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Pin the JDK: the runner default (25) is newer than Gradle 8.11 and the
+      # Kotlin Gradle plugin 2.1 support, and fails the build with a bare "25.0.5".
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
