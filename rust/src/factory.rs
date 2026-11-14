@@ -670,7 +670,7 @@ impl ConduitClientFactory {
     /// within a single snapshot transaction. `Database::checkpoint` is not
     /// usable here since Android denies the hard links it relies on.
     async fn snapshot_db(&self, snapshot_dir: &Path) -> Result<(), String> {
-        let snapshot_db: Database = RocksDb::open_blocking(snapshot_dir, None)
+        let snapshot_db: Database = RocksDb::open_blocking(snapshot_dir)
             .map_err(|e| format!("failed to create snapshot db: {e}"))?
             .into();
 

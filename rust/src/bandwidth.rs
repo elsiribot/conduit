@@ -1,15 +1,54 @@
 //! Session bandwidth statistics: gathers the prometheus counters recorded
-//! by the vendored connectors crate for the debug page, and emits periodic
-//! JSON snapshot lines into the log for offline analysis.
+//! for the debug page, and emits periodic JSON snapshot lines into the log
+//! for offline analysis.
+//!
+//! `API_REQUESTS_TOTAL`/`API_PAYLOAD_BYTES_TOTAL` used to also count
+//! guardian/gateway API calls, instrumented inside a vendored fork of
+//! fedimint-connectors. That fork tracked crates.io 0.11.x; upstream now
+//! pins fedimint-connectors to a 0.14.0-alpha git revision whose connector
+//! traits have moved on, so the guardian/gateway wrapping was dropped here
+//! and only the `kind="web"` counters (this crate's own exchange-rate and
+//! lnurl requests) remain live. Re-port `instrument_guardian`/
+//! `instrument_gateway` from the pre-rebase vendored crate once someone
+//! has time to adapt them to the new connector traits.
 
 use std::collections::BTreeMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{LazyLock, Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use fedimint_connectors::bandwidth::{API_PAYLOAD_BYTES_TOTAL, API_REQUESTS_TOTAL};
+use fedimint_metrics::prometheus::IntCounterVec;
+use fedimint_metrics::{REGISTRY, opts, register_int_counter_vec_with_registry};
 use flutter_rust_bridge::frb;
 use serde::Serialize;
+
+/// Total API requests made by the client. Labels: `kind` (currently always
+/// `web`), `url`, `method`, `result` = ok|error.
+static API_REQUESTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        opts!(
+            "conduit_api_requests_total",
+            "Total API requests made by the client",
+        ),
+        &["kind", "url", "method", "result"],
+        REGISTRY
+    )
+    .expect("metric registration should not fail")
+});
+
+/// Serialized JSON payload bytes exchanged with API endpoints. Labels:
+/// `kind`, `url`, `method`, `direction` = sent|received.
+static API_PAYLOAD_BYTES_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        opts!(
+            "conduit_api_payload_bytes_total",
+            "Serialized JSON payload bytes sent to / received from API endpoints",
+        ),
+        &["kind", "url", "method", "direction"],
+        REGISTRY
+    )
+    .expect("metric registration should not fail")
+});
 
 const REQUESTS_FAMILY: &str = "fm_conduit_api_requests_total";
 const PAYLOAD_FAMILY: &str = "fm_conduit_api_payload_bytes_total";

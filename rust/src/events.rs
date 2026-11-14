@@ -61,7 +61,7 @@ pub(crate) fn timeline_label(entry: &EventLogEntry, payload: &serde_json::Value)
     // Core tx events carry no module; payment events do. On-chain sends
     // terminate with a chain confirmation rather than a lightning preimage.
     let onchain = matches!(
-        entry.module.as_ref().map(|(kind, _)| kind.as_str()),
+        entry.module.as_ref().map(|module| module.kind.as_str()),
         Some("wallet" | "walletv2")
     );
 
