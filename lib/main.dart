@@ -62,6 +62,13 @@ void main() async {
     return;
   }
 
+  // Clients only connect to their guardians on demand and keep whatever
+  // connection they get for as long as it stays up, so a connection that
+  // died while the app was backgrounded (network change, OS-level idle
+  // teardown) otherwise sits dead until something happens to use it again.
+  // Nudging every client on resume reconnects immediately instead.
+  AppLifecycleListener(onResume: clientFactory.reconnectAll);
+
   // Open every account of every mint before the first frame so the wallet
   // itself is the first thing shown (the OS splash stays up until it's ready).
   // Only an empty wallet falls back to BaseScreen, which hosts onboarding; a

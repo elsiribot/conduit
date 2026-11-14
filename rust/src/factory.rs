@@ -484,6 +484,22 @@ impl ConduitClientFactory {
         self.clients.lock().unwrap().values().cloned().collect()
     }
 
+    /// Nudges every open client to re-establish its guardian connections.
+    ///
+    /// Clients only connect on demand and keep whatever connection they get
+    /// for as long as it stays up; nothing here notices a connection that
+    /// died while the app was backgrounded until something tries to use it
+    /// again. Call this from the app-resume lifecycle hook so a foregrounded
+    /// app reconnects immediately rather than waiting on incidental API
+    /// traffic. One-shot per peer (`Client::federation_reconnect`) — cheap
+    /// and a no-op for peers that are still connected.
+    #[frb(sync)]
+    pub fn reconnect_all(&self) {
+        for client in self.clients() {
+            client.client.federation_reconnect();
+        }
+    }
+
     /// Live snapshot of every open client; re-emits on every set change
     /// (join, recover, reload, leave). Subscribers re-render passively
     /// instead of re-fetching `clients()` after each navigation pop.
