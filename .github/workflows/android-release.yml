@@ -88,16 +88,22 @@ jobs:
         run: flutter build apk --release
 
       - name: Rename APK
-        run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/conduit.apk
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          echo "SHORT_SHA=$SHORT_SHA" >> "$GITHUB_ENV"
+          mv build/app/outputs/flutter-apk/app-release.apk \
+            "build/app/outputs/flutter-apk/conduit-$SHORT_SHA.apk"
 
+      # One release per build, tagged and named by commit so each APK is its
+      # own artifact (Obtainium, or anyone else polling releases, sees a new
+      # release every push instead of the same "latest" asset being silently
+      # replaced in place).
       - name: Upload to Release
         uses: ncipollo/release-action@v1
         with:
-          tag: latest
-          name: "Latest Android Release"
-          artifacts: "build/app/outputs/flutter-apk/conduit.apk"
-          allowUpdates: true
-          replacesArtifacts: true
+          tag: "build-${{ env.SHORT_SHA }}"
+          name: "Conduit ${{ env.SHORT_SHA }}"
+          artifacts: "build/app/outputs/flutter-apk/conduit-${{ env.SHORT_SHA }}.apk"
           draft: false
           prerelease: false
         env:
