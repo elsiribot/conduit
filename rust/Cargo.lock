@@ -1746,7 +1746,7 @@ checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
 [[package]]
 name = "fedimint-aead"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "argon2",
  "hex",
@@ -1758,7 +1758,7 @@ dependencies = [
 [[package]]
 name = "fedimint-api-client"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-channel",
  "async-trait",
@@ -1783,7 +1783,7 @@ dependencies = [
 [[package]]
 name = "fedimint-bip39"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "bip39",
  "fedimint-client",
@@ -1795,7 +1795,7 @@ dependencies = [
 [[package]]
 name = "fedimint-bitcoind"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-trait",
  "bitcoin",
@@ -1811,7 +1811,7 @@ dependencies = [
 [[package]]
 name = "fedimint-build"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "serde_json",
 ]
@@ -1819,7 +1819,7 @@ dependencies = [
 [[package]]
 name = "fedimint-client"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1851,7 +1851,7 @@ dependencies = [
 [[package]]
 name = "fedimint-client-module"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1881,7 +1881,7 @@ dependencies = [
 [[package]]
 name = "fedimint-connectors"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-trait",
  "aws-lc-sys 0.41.0",
@@ -1912,7 +1912,7 @@ dependencies = [
 [[package]]
 name = "fedimint-core"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-channel",
  "async-lock",
@@ -1977,7 +1977,7 @@ dependencies = [
 [[package]]
 name = "fedimint-db-locked"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-trait",
  "fedimint-core",
@@ -1990,7 +1990,7 @@ dependencies = [
 [[package]]
 name = "fedimint-derive"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "itertools 0.14.0",
  "proc-macro2",
@@ -2001,7 +2001,7 @@ dependencies = [
 [[package]]
 name = "fedimint-derive-secret"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "bitcoin_hashes",
  "bls12_381",
@@ -2013,7 +2013,7 @@ dependencies = [
 [[package]]
 name = "fedimint-eventlog"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-trait",
  "fedimint-core",
@@ -2031,7 +2031,7 @@ dependencies = [
 [[package]]
 name = "fedimint-fountain"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "bitcoin_hashes",
  "fedimint-core",
@@ -2042,7 +2042,7 @@ dependencies = [
 [[package]]
 name = "fedimint-hkdf"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "bitcoin_hashes",
 ]
@@ -2050,7 +2050,7 @@ dependencies = [
 [[package]]
 name = "fedimint-ln-common"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-trait",
  "bitcoin",
@@ -2074,7 +2074,7 @@ dependencies = [
 [[package]]
 name = "fedimint-lnurl"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "bech32",
  "lightning-invoice",
@@ -2087,7 +2087,7 @@ dependencies = [
 [[package]]
 name = "fedimint-lnv2-client"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -2117,7 +2117,7 @@ dependencies = [
 [[package]]
 name = "fedimint-lnv2-common"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-trait",
  "bitcoin",
@@ -2137,7 +2137,7 @@ dependencies = [
 [[package]]
 name = "fedimint-logging"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "thiserror 2.0.19",
  "tracing-subscriber",
@@ -2146,7 +2146,7 @@ dependencies = [
 [[package]]
 name = "fedimint-meta-client"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-trait",
  "erased-serde",
@@ -2167,7 +2167,7 @@ dependencies = [
 [[package]]
 name = "fedimint-meta-common"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "fedimint-core",
  "fedimint-logging",
@@ -2181,7 +2181,7 @@ dependencies = [
 [[package]]
 name = "fedimint-metrics"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "axum",
  "fedimint-core",
@@ -2193,7 +2193,7 @@ dependencies = [
 [[package]]
 name = "fedimint-mint-client"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "assert_matches",
  "async-stream",
@@ -2231,7 +2231,7 @@ dependencies = [
 [[package]]
 name = "fedimint-mint-common"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "bitcoin_hashes",
  "fedimint-core",
@@ -2244,7 +2244,7 @@ dependencies = [
 [[package]]
 name = "fedimint-mintv2-client"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-channel",
  "async-stream",
@@ -2280,7 +2280,7 @@ dependencies = [
 [[package]]
 name = "fedimint-mintv2-common"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "bitcoin_hashes",
  "fedimint-core",
@@ -2293,7 +2293,7 @@ dependencies = [
 [[package]]
 name = "fedimint-rocksdb"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-trait",
  "bon",
@@ -2310,7 +2310,7 @@ dependencies = [
 [[package]]
 name = "fedimint-tbs"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "bls12_381",
  "fedimint-core",
@@ -2347,7 +2347,7 @@ dependencies = [
 [[package]]
 name = "fedimint-tpe"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "bitcoin_hashes",
  "bls12_381",
@@ -2362,12 +2362,12 @@ dependencies = [
 [[package]]
 name = "fedimint-util-error"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 
 [[package]]
 name = "fedimint-wallet-client"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "assert_matches",
  "async-stream",
@@ -2396,7 +2396,7 @@ dependencies = [
 [[package]]
 name = "fedimint-wallet-common"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "bitcoin",
  "fedimint-core",
@@ -2410,7 +2410,7 @@ dependencies = [
 [[package]]
 name = "fedimint-walletv2-client"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -2437,7 +2437,7 @@ dependencies = [
 [[package]]
 name = "fedimint-walletv2-common"
 version = "0.14.0-alpha"
-source = "git+https://github.com/fedimint/fedimint?rev=0580b9a63ec#0580b9a63ecd71ed1545e77c099a5382402622ef"
+source = "git+https://github.com/elsiribot/fedimint?branch=conduit-feefix#205adeeb2376c97311f03654400bc7cd110d0cb5"
 dependencies = [
  "bitcoin",
  "fedimint-core",

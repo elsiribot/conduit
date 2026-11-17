@@ -9,23 +9,23 @@ ignored = ["socket2"]
 
 [dependencies]
 bitcoin = "0.32.5"
-fedimint-bip39 = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-client = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-client-module = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-connectors = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-core = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-derive-secret = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-eventlog = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-metrics = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-fountain = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-lnurl = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-lnv2-client = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-meta-client = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-mint-client = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-mintv2-client = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-rocksdb = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-wallet-client = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
-fedimint-walletv2-client = { git = "https://github.com/fedimint/fedimint", rev = "0580b9a63ec" }
+fedimint-bip39 = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-client = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-client-module = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-connectors = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-core = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-derive-secret = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-eventlog = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-metrics = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-fountain = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-lnurl = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-lnv2-client = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-meta-client = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-mint-client = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-mintv2-client = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-rocksdb = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-wallet-client = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
+fedimint-walletv2-client = { git = "https://github.com/elsiribot/fedimint", branch = "conduit-feefix" }
 flutter_rust_bridge = "=2.10.0"
 futures-util = "0.3.30"
 lightning-invoice = { version = "0.34.0", features = ["std"] }
