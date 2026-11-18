@@ -739,12 +739,29 @@ impl ConduitClient {
     #[frb]
     pub async fn get_payment_history(&self) -> Vec<ConduitPayment> {
         let mut payments = Vec::new();
+        let mut position = EventLogId::LOG_START;
 
+        // Read straight from the client's own live log, the same source
+        // `subscribe_event_log` catches up against on every call (including
+        // the one a fresh app start makes): the local mirror this view would
+        // otherwise read is only kept current by Primary's long-running
+        // subscription, so a one-shot fetch that trusted it instead could
+        // show a payment as missing for as long as that background task
+        // takes to catch up — normally instant, but with no bound on it.
         // The log is the mint's; this view keeps its own account's payments.
         // An update for another account's payment finds nothing here and
         // folds into nothing.
-        for (_, entry) in self.stored_event_log().await {
-            if let Some(parsed) = parse_event_log_entry(&entry) {
+        loop {
+            let batch = self.client.get_event_log(Some(position), 100).await;
+            let batch_len = batch.len();
+
+            for entry in &batch {
+                position = entry.id().saturating_add(1);
+
+                let Some(parsed) = parse_event_log_entry(entry.as_raw()) else {
+                    continue;
+                };
+
                 match parsed {
                     ParsedEvent::Payment {
                         mut payment,
@@ -767,6 +784,10 @@ impl ConduitClient {
                         apply_update(&mut payments, &operation_id, success, txid, preimage);
                     }
                 }
+            }
+
+            if batch_len < 100 {
+                break;
             }
         }
 
