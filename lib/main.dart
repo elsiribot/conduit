@@ -54,42 +54,26 @@ void main() async {
     }
   });
 
+  // Tracks whichever of the steps below is in flight, so a timeout (below)
+  // can say which one never returned rather than just "startup", since none
+  // of open/loadAll/selectedClient throw on a hang — they just never resolve
+  // (observed on a federation that's unreachable: a bad/stale guardian API
+  // endpoint or no network at all) — and nothing before this made that
+  // visible either.
+  var startupStep = 'opening the database';
+
   try {
-    final db = await openDatabase(dbPath: dir.path);
-
-    final clientFactory = await ConduitClientFactory.tryLoad(db: db);
-
-    if (clientFactory == null) {
-      runApp(ConduitApp(home: LandingScreen(db: db)));
-      return;
-    }
-
-    // Clients only connect to their guardians on demand and keep whatever
-    // connection they get for as long as it stays up, so a connection that
-    // died while the app was backgrounded (network change, OS-level idle
-    // teardown) otherwise sits dead until something happens to use it again.
-    // Nudging every client on resume reconnects immediately instead.
-    AppLifecycleListener(onResume: clientFactory.reconnectAll);
-
-    // Open every account of every mint before the first frame so the wallet
-    // itself is the first thing shown (the OS splash stays up until it's
-    // ready). Only an empty wallet falls back to BaseScreen, which hosts
-    // onboarding; a mint still recovering opens with the rest and shows its
-    // progress itself.
-    final clients = await clientFactory.loadAll();
-    final selected = await clientFactory.selectedClient();
-
-    runApp(
-      ConduitApp(
-        home:
-            clients.isEmpty
-                ? BaseScreen(clientFactory: clientFactory)
-                : HomeScreen(
-                  clientFactory: clientFactory,
-                  initialClients: clients,
-                  initialSelected: selected,
-                ),
-      ),
+    await _startup(
+      dir,
+      onStep: (step) => startupStep = step,
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () {
+        throw TimeoutException(
+          'Startup timed out after 30s while $startupStep. '
+          'Check network connectivity to the federation.',
+        );
+      },
     );
   } catch (e) {
     // Never leave the OS splash on screen forever: a database or client
@@ -99,6 +83,52 @@ void main() async {
     debugPrint('Startup failed: $e');
     runApp(ConduitApp(home: StartupErrorScreen(error: e.toString())));
   }
+}
+
+Future<void> _startup(
+  Directory dir, {
+  required void Function(String) onStep,
+}) async {
+  final db = await openDatabase(dbPath: dir.path);
+
+  onStep('loading the wallet');
+  final clientFactory = await ConduitClientFactory.tryLoad(db: db);
+
+  if (clientFactory == null) {
+    runApp(ConduitApp(home: LandingScreen(db: db)));
+    return;
+  }
+
+  // Clients only connect to their guardians on demand and keep whatever
+  // connection they get for as long as it stays up, so a connection that
+  // died while the app was backgrounded (network change, OS-level idle
+  // teardown) otherwise sits dead until something happens to use it again.
+  // Nudging every client on resume reconnects immediately instead.
+  AppLifecycleListener(onResume: clientFactory.reconnectAll);
+
+  // Open every account of every mint before the first frame so the wallet
+  // itself is the first thing shown (the OS splash stays up until it's
+  // ready). Only an empty wallet falls back to BaseScreen, which hosts
+  // onboarding; a mint still recovering opens with the rest and shows its
+  // progress itself.
+  onStep('opening mint clients');
+  final clients = await clientFactory.loadAll();
+
+  onStep('loading the selected account');
+  final selected = await clientFactory.selectedClient();
+
+  runApp(
+    ConduitApp(
+      home:
+          clients.isEmpty
+              ? BaseScreen(clientFactory: clientFactory)
+              : HomeScreen(
+                clientFactory: clientFactory,
+                initialClients: clients,
+                initialSelected: selected,
+              ),
+    ),
+  );
 }
 
 class ConduitApp extends StatelessWidget {
