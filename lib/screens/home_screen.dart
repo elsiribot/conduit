@@ -1133,8 +1133,11 @@ class _AccountSession {
   final ValueNotifier<bool> recovering = ValueNotifier(false);
   final ValueNotifier<int?> recoveryPercent = ValueNotifier(null);
   late final StreamSubscription<int> _balanceSubscription;
-  late final StreamSubscription<RecentPaymentsUpdate> _eventSubscription;
+  late StreamSubscription<RecentPaymentsUpdate> _eventSubscription;
   StreamSubscription<int>? _recoverySubscription;
+  late final void Function(PaymentNotification) _onNotification;
+  late final void Function() _onArrival;
+  bool _disposed = false;
 
   /// [onArrival] fires once per payment, when its event is first seen, and
   /// not for the updates that follow it or for the payments already in the
@@ -1144,26 +1147,46 @@ class _AccountSession {
     required void Function(PaymentNotification) onNotification,
     required void Function() onArrival,
   }) {
+    _onNotification = onNotification;
+    _onArrival = onArrival;
     _balanceSubscription = client.subscribeBalance().listen((sats) {
       balance.value = sats;
       if (!_held) shown.value = sats;
     });
-    _eventSubscription = client.subscribeEventLog().listen((update) {
-      final known = _livePayments.map((p) => p.operationId).toSet();
-      final arrived = update.payments.any(
-        (p) => !known.contains(p.operationId),
-      );
-      _livePayments = update.payments;
-      if (update.notification case final notification?) {
-        onNotification(notification);
-      }
-      // Before the list is published: an arrival that starts a slide holds
-      // the list back, so its row grows in once the page is in view.
-      if (_primed && arrived) onArrival();
-      _primed = true;
-      if (!_held) payments.value = _livePayments;
-    });
+    _subscribeEventLog();
     _trackRecovery();
+  }
+
+  // The bridge hands back a single-subscription stream per call, so a run
+  // that ends — the underlying task erroring out rather than running for the
+  // app's lifetime, as it is meant to — would otherwise leave this session
+  // permanently stale until the app itself restarted. Re-opening the stream
+  // picks back up from this view's last stored position, same as a restart
+  // would.
+  void _subscribeEventLog() {
+    _eventSubscription = client.subscribeEventLog().listen(
+      (update) {
+        final known = _livePayments.map((p) => p.operationId).toSet();
+        final arrived = update.payments.any(
+          (p) => !known.contains(p.operationId),
+        );
+        _livePayments = update.payments;
+        if (update.notification case final notification?) {
+          _onNotification(notification);
+        }
+        // Before the list is published: an arrival that starts a slide holds
+        // the list back, so its row grows in once the page is in view.
+        if (_primed && arrived) _onArrival();
+        _primed = true;
+        if (!_held) payments.value = _livePayments;
+      },
+      onError: (_) {
+        if (!_disposed) _subscribeEventLog();
+      },
+      onDone: () {
+        if (!_disposed) _subscribeEventLog();
+      },
+    );
   }
 
   /// Keeps [shown] and [payments] where they are until [release], while the
@@ -1195,6 +1218,7 @@ class _AccountSession {
   }
 
   void dispose() {
+    _disposed = true;
     _balanceSubscription.cancel();
     _eventSubscription.cancel();
     _recoverySubscription?.cancel();
